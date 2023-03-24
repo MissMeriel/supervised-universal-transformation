@@ -1,5 +1,7 @@
 import shutil
-
+import random
+import string
+import time
 import numpy as np
 import time
 import torch
@@ -20,7 +22,10 @@ from DatasetGenerator import TransformationDataSequence
 from loss_functions import *
 from DAVE2pytorch import *
 
-NAME = "Lenscoder-featuresVIF-KLD"
+randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+localtime = time.localtime()
+timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
+NAME = f"Lenscoder-featuresVIF-{timestr}"
 Path("models").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
@@ -110,7 +115,7 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
             optimizer.step()
             if (i % 100) == 0:
                 iter_end_t = time.time()
-                # epoch, samples, epoch elapsed time,
+                # epoch, samples, epoch elapsed time, latest loss, averaged 10 losses, loss term 2, loss term 3
                 print(
                     f"{epoch} {i} [{iter_end_t - epoch_start_t:.1f}]: {losses[-1]:.4f} {np.mean(losses[-10:]):.4f} {rloss.item():.4f} {kloss.item():.4f}"
                 )

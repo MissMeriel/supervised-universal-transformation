@@ -28,11 +28,10 @@ class VIFLoss(nn.Module):
 
     def forward(self, recons, x):
         batch_size = recons.shape[0]
-        # recons_ssim = recons.clone().detach().cpu().numpy()  # .transpose()
-        # x_ssim = x.clone().detach().cpu().numpy()
-        recons_loss = torch.zeros(1).to(device=self.device)
+        recons_loss = torch.zeros(batch_size).to(device=self.device)
         for i in range(batch_size):
-            recons_loss += (1 - self.torch_vif(recons[i], x[i])) / recons.shape[0]
+            recons_loss[i] = (1 - self.torch_vif(recons[i], x[i])) / batch_size
+        recons_loss = torch.sum(recons_loss)
         pred_recons = self.base_model(recons)
         pred_orig = self.base_model(x)
         prediction_loss = F.mse_loss(pred_orig, pred_recons)
