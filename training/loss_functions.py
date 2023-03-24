@@ -13,6 +13,11 @@ from torchvision.utils import make_grid, save_image
 from scipy import signal
 from enum import Enum
 
+# from vif_utils import vif
+from skimage.metrics import structural_similarity as ssim
+from sewar.full_ref import vifp
+
+
 class Filter(Enum):
 	UNIFORM = 0
 	GAUSSIAN = 1
@@ -22,11 +27,10 @@ import itertools
 class VIFLoss(nn.Module):
     def __init__(self, device):
         super(VIFLoss, self).__init__()
-        # self.margin = margin
         self.device = device
         self.base_model = torch.load("../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(self.device)
 
-    def forward(self, recons, x):
+    def calc(self, recons, x):
         batch_size = recons.shape[0]
         recons_loss = torch.zeros(batch_size, requires_grad=True).to(device=self.device)
         for i in range(batch_size):
@@ -36,24 +40,27 @@ class VIFLoss(nn.Module):
         pred_recons = self.base_model(recons)
         pred_orig = self.base_model(x)
         prediction_loss = F.mse_loss(pred_orig, pred_recons)
-        loss = prediction_loss + recons_loss + 0.0
+        loss = prediction_loss + recons_loss
         return loss, recons_loss, prediction_loss
 
     def torch_vif(self, recons, x, sigma_nsq=2):
-        tensor = torch.tensor([self.torch_vif_channel(recons[i,:,:], x[i,:,:], sigma_nsq) for i in range(recons.shape[0])])
-        return torch.mean(tensor)
+        channel_vifs = torch.zeros(3, requires_grad=True)
+        for i in range(recons.shape[0]):
+            temp = self.torch_vif_channel(recons[i,:,:], x[i,:,:], sigma_nsq)
+        # tensor = torch.tensor([self.torch_vif_channel(recons[i,:,:], x[i,:,:], sigma_nsq) for i in range(recons.shape[0])], requires_grad=True)
+        return torch.mean(channel_vifs)
 
     def torch_vif_channel(self, recons, x, sigma_nsq):
         EPS = 1e-10
-        num = 0.0
-        den = 0.0
+        num = torch.zeros(1)
+        den = torch.zeros(1)
         for scale in range(1, 5):
             N = 2.0 ** (4 - scale + 1) + 1
             win = fspecial(Filter.GAUSSIAN, ws=N, sigma=N / 5).to(self.device)
 
             if scale > 1:
-                GT = filter2(recons, win, 'valid')[::2, ::2]
-                P = filter2(x, win, 'valid')[::2, ::2]
+                recons = filter2(recons, win, 'valid')[::2, ::2]
+                x = filter2(x, win, 'valid')[::2, ::2]
 
             GT_sum_sq, P_sum_sq, GT_P_sum_mul = _get_sums(recons, x, win, mode='valid')
             sigmaGT_sq, sigmaP_sq, sigmaGT_P = _get_sigmas(recons, x, win, mode='valid',
@@ -116,8 +123,8 @@ def _get_sigmas(GT,P,win,mode='same',**kwargs):
     else:
         GT_sum_sq,P_sum_sq,GT_P_sum_mul = _get_sums(GT,P,win,mode)
 
-    return filter2(GT*GT,win,mode)  - GT_sum_sq, \
-           filter2(P*P,win,mode)  - P_sum_sq, \
+    return filter2(GT*GT,win,mode) - GT_sum_sq, \
+           filter2(P*P,win,mode) - P_sum_sq, \
            filter2(GT*P,win,mode) - GT_P_sum_mul
 
 
@@ -131,7 +138,8 @@ def loss_fn_orig(recons, x, mu, log_var, kld_weight):
     loss = recons_loss + kld_weight * kld_loss
     return loss, recons_loss, kld_loss
 
-def loss_fn(recons, x, mu, log_var, kld_weight):
+base_model = torch.load("../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt")
+def loss_fn_pred(recons, x, mu, log_var, kld_weight):
     recons_loss = F.mse_loss(recons, x)
     pred_recons = base_model(recons)
     pred_orig = base_model(x)
@@ -140,16 +148,11 @@ def loss_fn(recons, x, mu, log_var, kld_weight):
         -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0
     )
     loss = prediction_loss + recons_loss + kld_weight * kld_loss
-    print(f"{prediction_loss=:.4f}\t{recons_loss=:.4f}\t{(kld_weight * kld_loss)=:.4f}")
-    return loss, recons_loss, kld_loss
+    # print(f"{prediction_loss=:.4f}\t{recons_loss=:.4f}\t{(kld_weight * kld_loss)=:.4f}")
+    return loss, recons_loss, prediction_loss
 
 ################ THIS ONE DOESN'T WORK
 
-# from vif_utils import vif
-from skimage.metrics import structural_similarity as ssim
-from sewar.full_ref import vifp
-
-base_model = torch.load("../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt")
 def loss_fn_features(recons, x, mu, log_var, kld_weight):
     # recons_loss = vif(recons, x)
     # two identical images have SSIM score of 1
