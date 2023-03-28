@@ -1,26 +1,10 @@
 import numpy as np
-import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from pathlib import Path
-from torchvision.utils import make_grid, save_image
 from typing import List
-
-# meriels dependencies
-# from DatasetGenerator import MultiDirectoryDataSequence
-# from torch.utils.data import DataLoader, TensorDataset
-# from torchvision.transforms import Compose, ToTensor, Resize, Lambda, Normalize
-# from torch.autograd import Variable
-# import argparse
-
-NAME = "vae"
-Path("models").mkdir(exist_ok=True, parents=True)
-Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
-Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
-Path(f"samples_{NAME}/epoch").mkdir(exist_ok=True, parents=True)
 
 
 class Reshape(nn.Module):
