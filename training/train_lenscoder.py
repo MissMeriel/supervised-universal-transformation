@@ -1,6 +1,7 @@
 import shutil
 import random
 import string
+import matplotlib.pyplot as plt
 import time
 import numpy as np
 import time
@@ -19,21 +20,30 @@ from enum import Enum
 
 # meriels dependencies
 from DatasetGenerator import TransformationDataSequence
-from loss_functions import *
-from DAVE2pytorch import *
+from VIF_loss_functions import *
+from SSIM_loss_functions import *
+from basic_loss_functions import *
+from models.DAVE2pytorch import *
 
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 localtime = time.localtime()
 timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-NAME = f"Lenscoder-featuresVIF-{timestr}"
+NAME = f"Lenscoder-latentKLDloss-{timestr}"
 Path("models").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/epoch").mkdir(exist_ok=True, parents=True)
-shutil.copy(__file__, f"{NAME}")
+shutil.copy(__file__, f"samples_{NAME}")
+shutil.copy("basic_loss_functions.py", f"samples_{NAME}")
 
 
-from skimage.metrics import structural_similarity as ssim
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset', help='parent directory of training dataset')
+    args = parser.parse_args()
+    return args
+
+
 def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample_interval=200, lr=0.0005):
     optimizer = optim.Adam(model.parameters(), lr=lr)
     # TODO: adjust gamma if it plateaus at some values
@@ -43,10 +53,7 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
     all_losses = []
     start_t = time.time()
     z = torch.randn(100, model.latent_dim).to(device)
-    vifloss = VIFLoss(device)
-    #model = model.eval()
-    # grid = make_grid(model.decode(z).detach().cpu(), 10)
-    # save_image(grid, f"samples_{NAME}/epoch/0.png")
+    # vifloss = VIFLoss(device)
     for epoch in range(1, num_epochs + 1):
         epoch_start_t = time.time()
         losses = []
@@ -60,8 +67,9 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
             y = Variable(y, requires_grad=False)
             recons, x, mu, log_var = model(x)
 
-            loss, rloss, kloss = vifloss(recons, y) #
-            # loss, rloss, kloss = loss_fn_features(recons, y, mu, log_var, kld_weight) #
+            loss, rloss, kloss = loss_fn_latent(recons, y, mu, log_var, kld_weight) #vifloss(recons, y)
+            # loss, rloss, kloss = loss_fn_features(recons, y, mu, log_var, kld_weight)
+            # loss, rloss, kloss = loss_fn_pred(recons, y, mu, log_var, kld_weight)
             loss.backward()
             losses.append(loss.item())
             optimizer.step()
@@ -88,28 +96,45 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
     print(f"total time: {end_t - start_t} seconds")
     return model
 
-def validation(model, dataset, device="cpu", batch=100):
-    model = model.to(device).eval()
+
+def validation(vae, dataset, device="cpu", batch=100):
+    vae = vae.to(device).eval()
+    base_model = torch.load(
+        "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(
+        device)
     trainloader = DataLoader(dataset, batch_size=batch, shuffle=True)
     transform = Compose([ToTensor()])
-    # z = torch.randn(100, model.latent_dim).to(device)
+    Path(f"samples_{NAME}/validation-sets").mkdir(exist_ok=True, parents=True)
+    Path(f"samples_{NAME}/validation-indv").mkdir(exist_ok=True, parents=True)
     for i, hashmap in enumerate(trainloader, start=1):
         x = hashmap['image_transf'].float().to(device)
-        #x = transform(x)
+        # x = transform(x)
         # y = hashmap['image_base'].float().to(device)
-        recons, x_out, mu, log_var = model(x)
+        recons, x_out, mu, log_var = vae(x)
+        pred_orig = base_model(x)
+        pred_recons = base_model(recons)
+        # tb_summary(x, recons, pred_orig, pred_recons)
         grid_in = make_grid(x, 10)
         grid_out = make_grid(recons, 10)
-        save_image(grid_in, f"samples_{NAME}/validation-input{i:04d}.png")
-        save_image(grid_out, f"samples_{NAME}/validation-output{i:04d}.png")
-        if i > 20:
+        save_image(grid_in, f"samples_{NAME}/validation-sets/input{i:04d}.png")
+        save_image(grid_out, f"samples_{NAME}/validation-sets/output{i:04d}.png")
+        for j in range(x.shape[0]):
+            fig, (ax1, ax2) = plt.subplots(1, 2, layout='constrained', sharey=True)
+            ax1.imshow(x[j])
+            ax2.imshow(recons[j])
+            ax1.set_title(f'orig pred: {pred_orig:.3f}')
+            ax1.set_title(f'recons pred: {pred_recons:.3f}')
+            fig.suptitle(f'Prediction error: {(pred_orig - pred_recons):.3f}', fontsize=16)
+            plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
+
+        if i > 10:
             return
 
-def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('dataset', help='parent directory of training dataset')
-    args = parser.parse_args()
-    return args
+#
+# from torch.utils.tensorboard import SummaryWriter
+# def tb_summary(x, recons, pred_orig, pred_recons):
+#
+#     pass
 
 def main():
     from models.VAEsteer import Model
@@ -118,7 +143,7 @@ def main():
     start_time = time.time()
     BATCH_SIZE = 32
     NB_EPOCH = 1000
-    lr = 1e-4
+    lr = .001
     robustification = False
     noise_level = 20
     latent_dim = 512
@@ -133,18 +158,18 @@ def main():
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
     trainloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, worker_init_fn=worker_init_fn)
-    print("time to load dataset: {:.3d}".format(time.time() - start_time))
+    print(f"time to load dataset: {(time.time() - start_time):.3f}".format)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print("Using device:", device)
 
     model = model.to(device)
     model = train(model, trainloader, device=device, num_epochs=NB_EPOCH, sample_interval=20000, lr=lr)
-    #model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder_new2old_13ksamples_1000epoch_32batch_512latent/Lenscoder_512lat.pt")
+    #model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder_new2old_13ksamples_1000epoch_32batch_512latent/Lenscoder_512lat.pt").to(device)
     validation(model, dataset, device, batch=100)
     model = model.to(torch.device("cpu"))
     model = model.eval()
-    model_filename = f"Lenscoder_featureloss_{int(len(dataset)/1000)}k-{latent_dim}lat_{NB_EPOCH}epochs_{BATCH_SIZE}batch_{robustification}rob.pt"
+    model_filename = f"samples_{NAME}/Lenscoder_featureloss_{int(len(dataset)/1000)}k-{latent_dim}lat_{NB_EPOCH}epochs_{BATCH_SIZE}batch_{robustification}rob.pt"
     torch.save(model, model_filename)
 
 
