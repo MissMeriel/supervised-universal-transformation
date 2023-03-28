@@ -73,11 +73,31 @@ def loss_fn_latent(recons, x, mu, log_var, kld_weight):
     # pred_recons = base_model(recons)
     # pred_orig = base_model(x)
     # pred_loss = F.mse_loss(pred_recons, pred_orig)
-    latent_recons = base_model.features(recons)
-    latent_orig = base_model.features(x)
+    _, latent_recons = base_model.features(recons)
+    _, latent_orig = base_model.features(x)
     latent_loss = F.mse_loss(latent_recons, latent_orig)
     loss = recons_loss + latent_loss + kld_weight * kld_loss
     return loss, recons_loss, latent_loss #, pred_loss
 
 
+def loss_fn_conv(recons, x, mu, log_var, kld_weight, mode='same'):
+    recons_loss = 0.0
+    latent_recons, _ = base_model.features(recons)
+    latent_orig, _ = base_model.features(x)
+    filter_orig = filter(latent_recons, latent_recons)
+    filter_pair = filter(latent_recons, latent_orig)
+    filter_loss = F.mse_loss(filter_orig, filter_pair)
+    kld_loss = torch.mean(
+        -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0
+    )
+    loss = recons_loss + filter_loss + kld_weight * kld_loss
+    return loss, recons_loss, filter_loss
 
+def filter(img, fltr, mode='same', rot=False):
+    if len(img.shape) <= 2:
+        img = img[None][None]
+    if len(fltr.shape) <= 2:
+        fltr = fltr[None][None]
+    if rot:
+        fltr = torch.rot90(fltr, 2)
+    return F.conv2d(img, fltr, padding=mode)

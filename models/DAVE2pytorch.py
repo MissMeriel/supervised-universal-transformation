@@ -271,8 +271,8 @@ class DAVE2v3(nn.Module):
         x = self.conv3(x)
         x = F.relu(x)
         x = self.pool3(x)
-        x = x.flatten(1)
-        return x
+        x_flatten = x.flatten(1)
+        return x, x_flatten
 
     def load(self, path="test-model.pt"):
         return torch.load(path)
