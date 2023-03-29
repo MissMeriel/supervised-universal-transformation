@@ -188,7 +188,7 @@ class TransformationDataSequence(data.Dataset):
         try:
             self.cache[idx] = orig_sample
         except MemoryError as e:
-            print(f"Memory error adding sample to cache: {e}")
+            print(f"Memory error adding sample to cache: {e}", flush=True)
         return sample
 
     def get_outputs_distribution(self):

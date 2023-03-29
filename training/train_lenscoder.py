@@ -74,9 +74,9 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
             if (i % 100) == 0:
                 iter_end_t = time.time()
                 # epoch, samples, epoch elapsed time, latest loss, averaged 10 losses, loss term 2, loss term 3
-                #print(type(loss), type(rloss), type(kloss))
                 print(
-                    f"{epoch} {i} [{iter_end_t - epoch_start_t:.1f}]: {losses[-1]:.4f} {np.mean(losses[-10:]):.4f} {rloss.item():.4f} {kloss.item():.4f}"
+                    f"{epoch} {i} [{iter_end_t - epoch_start_t:.1f}]: {losses[-1]:.4f} {np.mean(losses[-10:]):.4f} {rloss.item():.4f} {kloss.item():.4f}",
+                    flush=True
                 )
             batches_done = (epoch - 1) * len(data_loader) + i
 
@@ -92,7 +92,7 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
         grid = make_grid(model.decode(z).detach().cpu(), 10)
         save_image(grid, f"samples_{NAME}/epoch/{epoch}.png")
     end_t = time.time()
-    print(f"total time: {end_t - start_t} seconds")
+    print(f"total time: {end_t - start_t} seconds", flush=True)
     return model
 
 # https://matplotlib.org/stable/gallery/subplots_axes_and_figures/figure_title.html
@@ -144,7 +144,7 @@ def validation(vae, dataset, device="cpu", batch=100):
 def main():
     from models.VAEsteer import Model
     args = parse_arguments()
-    print(args)
+    print(args, flush=True)
     start_time = time.time()
     BATCH_SIZE = 32
     NB_EPOCH = 1000
@@ -156,17 +156,16 @@ def main():
     training_dataset = TransformationDataSequence(args.training_dataset, image_size=(model.input_shape[::-1]), transform=Compose([ToTensor()]),\
                                          robustification=robustification, noise_level=noise_level)
 
-    print("Retrieving output distribution....")
-    print("Moments of distribution:", training_dataset.get_outputs_distribution())
-    print("Total samples:", training_dataset.get_total_samples())
+    print("Moments of distribution:", training_dataset.get_outputs_distribution(), flush=True)
+    print("Total samples:", training_dataset.get_total_samples(), flush=True)
     def worker_init_fn(worker_id):
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
     trainloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True, worker_init_fn=worker_init_fn)
-    print(f"time to load dataset: {(time.time() - start_time):.3f}")
+    print(f"time to load dataset: {(time.time() - start_time):.3f}", flush=True)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    print("Using device:", device)
+    print("Using device:", device, flush=True)
 
     model = model.to(device)
     model = train(model, trainloader, device=device, num_epochs=NB_EPOCH, sample_interval=20000, lr=lr)
