@@ -241,8 +241,14 @@ def spawn_point(default_scenario, road_id, reverse=False, seg=1):
             return {'pos': (184.983, -41.0821, 42.7761), 'rot': None, 'rot_quat': (-0.005, 0.001, 0.299, 0.954)}
         elif road_id == 'racetrackleft':
             return {'pos': (216.578, -28.1725, 42.7788), 'rot': None, 'rot_quat': (-0.0051, -0.003147, -0.67135, 0.74112)}
-        elif road_id == 'racetrackstartinggate':
+        elif road_id == 'racetrackstartinggate' or road_id == "7983" or road_id == "7982":
             return {'pos':(160.905, -91.9654, 42.8511), 'rot': None, 'rot_quat':(-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
+        elif road_id == "rc_asphalta":
+            return {'pos': (-68.78999328613281,113.09487915039062,43.5), 'rot': None, 'rot_quat':(-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
+        elif road_id == "7978":
+            return {'pos': (95.38813781738281,3.2133491039276123,42.7), 'rot': None, 'rot_quat': (-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
+        elif road_id == "8067":
+            return {'pos': (-129.1887969970703,-318.7164306640625,38.4), 'rot': None, 'rot_quat': (-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
         elif road_id == "racetrackstraightaway":
             return {'pos':(262.328, -35.933, 42.5965), 'rot': None, 'rot_quat':(-0.010505940765142, 0.029969356954098, -0.44812294840813, 0.89340770244598)}
         elif road_id == "racetrackcurves":
@@ -712,7 +718,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, trans
     hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     localtime = time.localtime()
     timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-    writedir = f"F:/supervised-transformation/{default_scenario}-{road_id}-{topo_id}-{transf}.{seg}-run{run_number:02d}-{timestr}-{hash}"
+    writedir = f"F:/supervised-transformation-dataset/{default_scenario}-{road_id}-{topo_id}-{transf}.{seg}-run{run_number:02d}-{timestr}-{hash}"
     if not os.path.isdir(writedir):
         os.mkdir(writedir)
     with open(f"{writedir}/data.txt", "w") as f:
@@ -968,6 +974,8 @@ def get_topo(topo_id):
         default_scenario = "hirochi_raceway"; road_id="9062"; seg = None; reverse=False
     elif "Rturn_servicecutthru" in topo_id:
         default_scenario = "hirochi_raceway"; road_id="9156"; seg = None; reverse=False
+    elif "Rturn_industrialtrack" in topo_id:
+        default_scenario = "industrial"; road_id="7982"; seg=None; reverse=False
     elif "countryrd" in topo_id:
         default_scenario = "automation_test_track"; road_id="7990"; seg=None; reverse=False #
     elif "Rturn_mtnrd" in topo_id:
@@ -1005,7 +1013,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
 
-    topo_id = "Rturn_servicecutthru"
+    topo_id = "Rturn_industrialtrack"
     transf_id = "fisheye"
     runs = 1
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
