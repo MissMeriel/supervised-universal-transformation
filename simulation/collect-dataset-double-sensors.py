@@ -244,11 +244,12 @@ def spawn_point(default_scenario, road_id, reverse=False, seg=1):
         elif road_id == 'racetrackstartinggate' or road_id == "7983" or road_id == "7982":
             return {'pos':(160.905, -91.9654, 42.8511), 'rot': None, 'rot_quat':(-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
         elif road_id == "rc_asphalta":
-            return {'pos': (-68.78999328613281,113.09487915039062,43.5), 'rot': None, 'rot_quat':(-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
-        elif road_id == "7978":
-            return {'pos': (95.38813781738281,3.2133491039276123,42.7), 'rot': None, 'rot_quat': (-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
-        elif road_id == "8067":
-            return {'pos': (-129.1887969970703,-318.7164306640625,38.4), 'rot': None, 'rot_quat': (-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
+            return {'pos': (-68.78999328613281,113.09487915039062,43.5), 'rot': None, 'rot_quat':turn_X_degrees((-0.00362, 0.006529, 0.92345, -0.38365), -45)}
+        elif road_id == "7978": #narrow patched service road
+            return {'pos': (95.38813781738281,3.2133491039276123,42.7), 'rot': None, 'rot_quat': turn_X_degrees((-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327), 140)}
+        elif road_id == "8067": # dirt road
+            # [[-129.1887969970703, -318.7164306640625, 38.20215606689453], [-131.92990112304688, -329.3212890625, 38.21828842163086], [-132.2469024658203, -330.12939453125, 38.2061767578125], [-135.68594360351562, -338.345947265625, 37.635719299316406], [-136.19949340820312, -339.2170715332031, 37.49352264404297], [-136.7526092529297, -340.050537109375, 37.33293533325195], [-137.34890747070312, -340.8382873535156, 37.14881134033203], [-137.99200439453125, -341.5723571777344, 36.947303771972656], [-138.68551635742188, -342.2447509765625, 36.722900390625], [-139.33372497558594, -342.8045654296875, 36.51557540893555]]
+            return {'pos': (-139.33372497558594, -342.8045654296875, 36.7), 'rot': None, 'rot_quat': turn_X_degrees((-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327), 180)}
         elif road_id == "racetrackstraightaway":
             return {'pos':(262.328, -35.933, 42.5965), 'rot': None, 'rot_quat':(-0.010505940765142, 0.029969356954098, -0.44812294840813, 0.89340770244598)}
         elif road_id == "racetrackcurves":
@@ -555,6 +556,7 @@ def road_analysis(bng, road_id):
     # else:
     #     print(f"reversed spawn={edges[-1]['middle']}")
     centerline = [edge['middle'] for edge in edges]
+    print(centerline[0:10])
     if road_id == "8185":
         edges = bng.get_road_edges("8096")
         roadleft = [edge['middle'] for edge in edges]
@@ -632,6 +634,28 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
         sphere_colors.append([1, 0, 0, 0.8])
     bng.add_debug_line(points, point_colors, spheres=spheres, sphere_colors=sphere_colors, cling=True, offset=0.1)
 
+
+def add_barriers(scenario):
+    with open('posefiles/industrial_racetrack_barrier_locations.txt', 'r') as f:
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            line = line.split(' ')
+            pos = line[0].split(',')
+            pos = tuple([float(i) for i in pos])
+            rot_quat = line[1].split(',')
+            rot_quat = tuple([float(j) for j in rot_quat])
+            # turn barrier 90 degrees
+            r = R.from_quat(list(rot_quat))
+            r = r.as_euler('xyz', degrees=True)
+            r[2] = r[2] + 90
+            r = R.from_euler('xyz', r, degrees=True)
+            rot_quat = tuple(r.as_quat())
+            barrier = StaticObject(name='barrier{}'.format(i), pos=pos, rot=None, rot_quat=rot_quat, scale=(1, 1, 1),
+                                shape='levels/Industrial/art/shapes/misc/concrete_road_barrier_a.dae')
+            # barrier.type="BeamNGVehicle"
+            scenario.add_object(barrier)
+
+
 def add_qr_cubes(scenario):
     global qr_positions
     qr_positions = []
@@ -677,6 +701,7 @@ def setup_beamng(default_scenario, road_id, transf="None", reverse=False, seg=1,
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
     print(spawn)
     scenario.add_vehicle(vehicle, pos=spawn['pos'], rot=None, rot_quat=spawn['rot_quat']) #, partConfig=parts_config)
+    add_barriers(scenario)
     scenario.make(beamng)
     bng = beamng.open(launch=True)
     bng.set_deterministic()
@@ -705,7 +730,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, trans
         cutoff_point = [843.6112670898438, 6.58771276473999, 147.01829528808594] # late
     else:
         cutoff_point = [601.547, 53.4482, 43.29]
-    cutoff_point = [0,0,0]
+    cutoff_point = spawn_point(default_scenario, road_id, seg=None)['pos']
     bng.restart_scenario()
     vehicle.update_vehicle()
     # sensors = bng.poll_sensors(vehicle)
@@ -759,7 +784,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, trans
             curr_steering = sensors['electrics']['steering_input']
             # expert_action, cartocl_theta_deg = get_expert_action(vehicle)
             expert_action = -leftrightcenter * (distance_from_center / 8)
-            if "Rturn" in topo_id or topo_id == "Lturn" or topo_id == "uphill_left_curve":
+            if "Rturn" in topo_id or "Lturn" in topo_id or "extra" in topo_id:
                 expert_action = -leftrightcenter * (distance_from_center)
             # print(f"action={expert_action=:.3f}\t\ttheta{math.degrees(cartocl_theta_deg)=:.3f}")
             # evaluation = abs(expert_action - base_model_inf) < 0.05
@@ -809,7 +834,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, trans
             last_time = sensors['timer']['time']
             bng.step(1, wait=False)
 
-            if distance2D(vehicle.state["pos"], cutoff_point) < 12:
+            if distance2D(vehicle.state["pos"], cutoff_point) < 12 and sensors['timer']['time'] > 50:
                 reached_cutoff = True
                 print("Reached cutoff point, exiting...")
                 break
@@ -844,7 +869,7 @@ def steering_PID(curr_steering,  steer_setpoint, dt):
         kp = 0.1; ki = 0.00; kd = 0.01 # decent on straight Average deviation: 1.096
     elif "Rturn" in topo_id:
         kp = 0.8125; ki = 0.00; kd = 0.3
-    elif "Lturn" in topo_id or "uphill" in topo_id:
+    elif "Lturn" in topo_id:
         kp = 0.5; ki = 0.00; kd = 0.3
     else:
         kp = 0.75; ki = 0.01; kd = 0.2  # decent
@@ -974,10 +999,16 @@ def get_topo(topo_id):
         default_scenario = "hirochi_raceway"; road_id="9062"; seg = None; reverse=False
     elif "Rturn_servicecutthru" in topo_id:
         default_scenario = "hirochi_raceway"; road_id="9156"; seg = None; reverse=False
-    elif "Rturn_industrialtrack" in topo_id:
+    elif "extrawinding_industrialtrack" in topo_id:
         default_scenario = "industrial"; road_id="7982"; seg=None; reverse=False
+    elif "extrawinding_industrialrcasphalta" in topo_id:
+        default_scenario = "industrial"; road_id = "rc_asphalta"; seg = None; reverse = False
+    elif "extrawinding_industrial7978" in topo_id:
+        default_scenario = "industrial"; road_id = "7978"; seg = None; reverse = False
+    elif "extrawinding_industrial8067" in topo_id:
+        default_scenario = "industrial"; road_id = "8067"; seg = None; reverse = False
     elif "countryrd" in topo_id:
-        default_scenario = "automation_test_track"; road_id="7990"; seg=None; reverse=False #
+        default_scenario = "automation_test_track"; road_id="7990"; seg=None; reverse=False
     elif "Rturn_mtnrd" in topo_id:
         default_scenario = "automation_test_track"; road_id="8356"; seg=None; reverse=False
     elif "straight" in topo_id:
@@ -1013,7 +1044,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
 
-    topo_id = "Rturn_industrialtrack"
+    topo_id = "extrawinding_industrial8067"
     transf_id = "fisheye"
     runs = 1
     default_scenario, road_id, seg, reverse = get_topo(topo_id)

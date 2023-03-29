@@ -65,7 +65,7 @@ def loss_fn_features(recons, x, mu, log_var, kld_weight):
     return loss, recons_loss, prediction_loss
 
 
-def loss_fn_latent(recons, x, mu, log_var, kld_weight):
+def loss_fn_latent_kld(recons, x, mu, log_var, kld_weight):
     recons_loss = F.mse_loss(recons, x)
     kld_loss = torch.mean(
         -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0
@@ -81,7 +81,7 @@ def loss_fn_latent(recons, x, mu, log_var, kld_weight):
 
 
 def loss_fn_conv(recons, x, mu, log_var, kld_weight, mode='same'):
-    recons_loss = 0.0
+    # recons_loss = F.mse_loss(recons, x)
     latent_recons, _ = base_model.features(recons)
     latent_orig, _ = base_model.features(x)
     filter_orig = filter(latent_recons, latent_recons)
@@ -90,8 +90,12 @@ def loss_fn_conv(recons, x, mu, log_var, kld_weight, mode='same'):
     kld_loss = torch.mean(
         -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0
     )
-    loss = recons_loss + filter_loss + kld_weight * kld_loss
-    return loss, recons_loss, filter_loss
+    pred_recons = base_model(recons)
+    pred_orig = base_model(x)
+    prediction_loss = F.mse_loss(pred_orig, pred_recons)
+    loss = filter_loss + prediction_loss + kld_weight * kld_loss
+    return loss, filter_loss, prediction_loss
+
 
 def filter(img, fltr, mode='same', rot=False):
     if len(img.shape) <= 2:

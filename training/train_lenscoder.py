@@ -28,7 +28,7 @@ from models.DAVE2pytorch import *
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 localtime = time.localtime()
 timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-NAME = f"Lenscoder-latentKLDloss-{timestr}"
+NAME = f"Lenscoder-origloss-dataindist-{timestr}-{randstr}"
 Path("models").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
@@ -39,7 +39,8 @@ shutil.copy("basic_loss_functions.py", f"samples_{NAME}")
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset', help='parent directory of training dataset')
+    parser.add_argument("-t", '--training_dataset', help='parent directory of training dataset')
+    parser.add_argument('-v', '--validation_dataset', help='parent directory of training dataset')
     args = parser.parse_args()
     return args
 
@@ -53,7 +54,6 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
     all_losses = []
     start_t = time.time()
     z = torch.randn(100, model.latent_dim).to(device)
-    # vifloss = VIFLoss(device)
     for epoch in range(1, num_epochs + 1):
         epoch_start_t = time.time()
         losses = []
@@ -67,15 +67,14 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
             y = Variable(y, requires_grad=False)
             recons, x, mu, log_var = model(x)
 
-            loss, rloss, kloss = loss_fn_latent(recons, y, mu, log_var, kld_weight) #vifloss(recons, y)
-            # loss, rloss, kloss = loss_fn_features(recons, y, mu, log_var, kld_weight)
-            # loss, rloss, kloss = loss_fn_pred(recons, y, mu, log_var, kld_weight)
+            loss, rloss, kloss = loss_fn_orig(recons, y, mu, log_var, kld_weight)
             loss.backward()
             losses.append(loss.item())
             optimizer.step()
             if (i % 100) == 0:
                 iter_end_t = time.time()
                 # epoch, samples, epoch elapsed time, latest loss, averaged 10 losses, loss term 2, loss term 3
+                #print(type(loss), type(rloss), type(kloss))
                 print(
                     f"{epoch} {i} [{iter_end_t - epoch_start_t:.1f}]: {losses[-1]:.4f} {np.mean(losses[-10:]):.4f} {rloss.item():.4f} {kloss.item():.4f}"
                 )
@@ -96,45 +95,51 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
     print(f"total time: {end_t - start_t} seconds")
     return model
 
-
+# https://matplotlib.org/stable/gallery/subplots_axes_and_figures/figure_title.html
 def validation(vae, dataset, device="cpu", batch=100):
     vae = vae.to(device).eval()
     base_model = torch.load(
-        "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(
-        device)
+        "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(device)
     trainloader = DataLoader(dataset, batch_size=batch, shuffle=True)
     transform = Compose([ToTensor()])
     Path(f"samples_{NAME}/validation-sets").mkdir(exist_ok=True, parents=True)
     Path(f"samples_{NAME}/validation-indv").mkdir(exist_ok=True, parents=True)
     for i, hashmap in enumerate(trainloader, start=1):
-        x = hashmap['image_transf'].float().to(device)
-        # x = transform(x)
-        # y = hashmap['image_base'].float().to(device)
-        recons, x_out, mu, log_var = vae(x)
-        pred_orig = base_model(x)
-        pred_recons = base_model(recons)
-        # tb_summary(x, recons, pred_orig, pred_recons)
-        grid_in = make_grid(x, 10)
-        grid_out = make_grid(recons, 10)
-        save_image(grid_in, f"samples_{NAME}/validation-sets/input{i:04d}.png")
-        save_image(grid_out, f"samples_{NAME}/validation-sets/output{i:04d}.png")
-        for j in range(x.shape[0]):
-            fig, (ax1, ax2) = plt.subplots(1, 2, layout='constrained', sharey=True)
-            ax1.imshow(x[j])
-            ax2.imshow(recons[j])
-            ax1.set_title(f'orig pred: {pred_orig:.3f}')
-            ax1.set_title(f'recons pred: {pred_recons:.3f}')
-            fig.suptitle(f'Prediction error: {(pred_orig - pred_recons):.3f}', fontsize=16)
-            plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
+        with torch.no_grad:
+            x = hashmap['image_transf'].float().to(device)
+            y = hashmap['image_base'].float().to(device)
+            recons, x_out, mu, log_var = vae(x)
+            pred_hw1 = base_model(y).detach().cpu().numpy()
+            pred_hw2 = base_model(x).detach().cpu().numpy()
+            pred_recons = base_model(recons).detach().cpu().numpy()
+            # tb_summary(x, recons, pred_orig, pred_recons)
+            grid_in = make_grid(x, 10)
+            grid_out = make_grid(recons, 10)
+            save_image(grid_in, f"samples_{NAME}/validation-sets/input{i:04d}.png")
+            save_image(grid_out, f"samples_{NAME}/validation-sets/output{i:04d}.png")
+            for j in range(x.shape[0]):
+                fig, (ax1, ax2, ax3) = plt.subplots(1, 3, layout='constrained', sharey=True)
+                hw1_img = np.transpose(y[j].detach().cpu().numpy(), (1, 2, 0))
+                hw2_img = np.transpose(x[j].detach().cpu().numpy(), (1,2,0))
+                recons_img = np.transpose(recons[j].detach().cpu().numpy(), (1,2,0))
+                ax1.imshow(hw1_img)
+                ax2.imshow(hw2_img)
+                ax3.imshow(recons_img)
+                ax1.set_title(f'hw1 pred: {pred_hw1[j][0]:.5f}')
+                ax2.set_title(f'hw2 pred: {pred_hw2[j][0]:.5f}')
+                ax3.set_title(f'recons pred: {pred_recons[j][0]:.5f}')
+                fig.suptitle(f'Prediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}', fontsize=16)
+                plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
+                plt.close()
+            if i > 10:
+                return
 
-        if i > 10:
-            return
 
-#
 # from torch.utils.tensorboard import SummaryWriter
 # def tb_summary(x, recons, pred_orig, pred_recons):
 #
 #     pass
+
 
 def main():
     from models.VAEsteer import Model
@@ -143,34 +148,40 @@ def main():
     start_time = time.time()
     BATCH_SIZE = 32
     NB_EPOCH = 1000
-    lr = .001
+    lr = .00001
     robustification = False
     noise_level = 20
     latent_dim = 512
     model = Model(input_shape=(135,240), latent_dim=latent_dim)
-    dataset = TransformationDataSequence(args.dataset, image_size=(model.input_shape[::-1]), transform=Compose([ToTensor()]),\
+    training_dataset = TransformationDataSequence(args.training_dataset, image_size=(model.input_shape[::-1]), transform=Compose([ToTensor()]),\
                                          robustification=robustification, noise_level=noise_level)
 
     print("Retrieving output distribution....")
-    print("Moments of distribution:", dataset.get_outputs_distribution())
-    print("Total samples:", dataset.get_total_samples())
+    print("Moments of distribution:", training_dataset.get_outputs_distribution())
+    print("Total samples:", training_dataset.get_total_samples())
     def worker_init_fn(worker_id):
         np.random.seed(np.random.get_state()[1][0] + worker_id)
 
-    trainloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, worker_init_fn=worker_init_fn)
-    print(f"time to load dataset: {(time.time() - start_time):.3f}".format)
+    trainloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True, worker_init_fn=worker_init_fn)
+    print(f"time to load dataset: {(time.time() - start_time):.3f}")
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print("Using device:", device)
 
     model = model.to(device)
     model = train(model, trainloader, device=device, num_epochs=NB_EPOCH, sample_interval=20000, lr=lr)
-    #model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder_new2old_13ksamples_1000epoch_32batch_512latent/Lenscoder_512lat.pt").to(device)
-    validation(model, dataset, device, batch=100)
+    model_filename = f"samples_{NAME}/Lenscoder_featureloss_{int(len(training_dataset)/1000)}k-{latent_dim}lat_{NB_EPOCH}epochs_{BATCH_SIZE}batch_{robustification}rob.pt"
     model = model.to(torch.device("cpu"))
     model = model.eval()
-    model_filename = f"samples_{NAME}/Lenscoder_featureloss_{int(len(dataset)/1000)}k-{latent_dim}lat_{NB_EPOCH}epochs_{BATCH_SIZE}batch_{robustification}rob.pt"
     torch.save(model, model_filename)
+
+    # model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder-latentloss-3_28-11_47/Lenscoder_featureloss_38k-512lat_1000epochs_32batch_Falserob.pt").to(device)
+    validation_dataset = TransformationDataSequence(args.training_dataset, image_size=(model.input_shape[::-1]),
+                                                  transform=Compose([ToTensor()]), \
+                                                  robustification=robustification, noise_level=noise_level)
+    validation(model, validation_dataset, device, batch=100)
+
+
 
 
 if __name__ == "__main__":

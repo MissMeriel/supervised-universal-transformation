@@ -185,7 +185,10 @@ class TransformationDataSequence(data.Dataset):
 
         sample = {"image_base": image_base, "image_transf": image_transf, "steering_input": torch.FloatTensor([y_steer]), "all": torch.FloatTensor([y_steer])}
         orig_sample = {"image_base": image_base_orig, "image_transf": image_transf_orig,"steering_input": torch.FloatTensor([orig_y_steer]), "all": torch.FloatTensor([orig_y_steer])}
-        self.cache[idx] = orig_sample
+        try:
+            self.cache[idx] = orig_sample
+        except MemoryError as e:
+            print(f"Memory error adding sample to cache: {e}")
         return sample
 
     def get_outputs_distribution(self):
