@@ -11,11 +11,14 @@ import argparse
 from pathlib import Path
 from torchvision.utils import make_grid, save_image
 from scipy import signal
+import sys
 
-from vif_utils import vif
+# from vif_utils import vif
+# from sewar.full_ref import vifp
 from skimage.metrics import structural_similarity as ssim
-from sewar.full_ref import vifp
 
+sys.path.append(f'../models')
+sys.path.append(f'..')
 from models import DAVE2pytorch
 from models.DAVE2pytorch import *
 
@@ -44,7 +47,7 @@ def loss_fn_pred(recons, x, mu, log_var, kld_weight):
 
 ################ THIS ONE DOESN'T WORK
 
-def loss_fn_features(recons, x, mu, log_var, kld_weight):
+def loss_fn_features_kld(recons, x, mu, log_var, kld_weight):
     # recons_loss = vif(recons, x)
     # two identical images have SSIM score of 1
     recons_ssim = recons.clone().detach().cpu().numpy() #.transpose()

@@ -17,32 +17,42 @@ from pathlib import Path
 from torchvision.utils import make_grid, save_image
 from scipy import signal
 from enum import Enum
+import sys
 
 # meriels dependencies
 from DatasetGenerator import TransformationDataSequence
-from VIF_loss_functions import *
-from SSIM_loss_functions import *
+# from VIF_loss_functions import *
+# from SSIM_loss_functions import *
+
+sys.path.append(f'../models')
 from basic_loss_functions import *
 from models.DAVE2pytorch import *
 
-randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-localtime = time.localtime()
-timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-NAME = f"Lenscoder-origloss-dataindist-{timestr}-{randstr}"
-Path("models").mkdir(exist_ok=True, parents=True)
-Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
-Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
-Path(f"samples_{NAME}/epoch").mkdir(exist_ok=True, parents=True)
-shutil.copy(__file__, f"samples_{NAME}")
-shutil.copy("basic_loss_functions.py", f"samples_{NAME}")
+
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", '--training_dataset', help='parent directory of training dataset')
     parser.add_argument('-v', '--validation_dataset', help='parent directory of training dataset')
+    parser.add_argument('-o', '--procid', type=int, help='identifier or slurm process id')
+    parser.add_argument('-e', '--epochs', type=int, default=1000, help='training epochs')
+    parser.add_argument('-l', '--loss_fn', type=str, default="orig", help='loss fn type')
+    parser.add_argument('-r', '--lr', type=float, default=0.0001, help='learning rate')
     args = parser.parse_args()
     return args
+
+args = parse_arguments()
+randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+localtime = time.localtime()
+timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
+NAME = f"Lenscoder-{args.loss_fn}loss-dataindist-{args.procid}-{timestr}-{randstr}"
+Path("models").mkdir(exist_ok=True, parents=True)
+Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
+Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
+Path(f"samples_{NAME}/epoch").mkdir(exist_ok=True, parents=True)
+shutil.copy(__file__, f"samples_{NAME}")
+shutil.copy("basic_loss_functions.py", f"samples_{NAME}")
 
 
 def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample_interval=200, lr=0.0005):
@@ -66,8 +76,12 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
             x = Variable(x, requires_grad=True)
             y = Variable(y, requires_grad=False)
             recons, x, mu, log_var = model(x)
-
-            loss, rloss, kloss = loss_fn_orig(recons, y, mu, log_var, kld_weight)
+            if args.loss_fn == "orig":
+                loss, rloss, kloss = loss_fn_orig(recons, y, mu, log_var, kld_weight)
+            elif args.loss_fn == "latent_kld":
+                loss, rloss, kloss = loss_fn_latent_kld(recons, y, mu, log_var, kld_weight)
+            elif args.loss_fn == "features_kld":
+                loss, rloss, kloss = loss_fn_features_kld(recons, y, mu, log_var, kld_weight)
             loss.backward()
             losses.append(loss.item())
             optimizer.step()
@@ -143,12 +157,11 @@ def validation(vae, dataset, device="cpu", batch=100):
 
 def main():
     from models.VAEsteer import Model
-    args = parse_arguments()
     print(args, flush=True)
     start_time = time.time()
     BATCH_SIZE = 32
-    NB_EPOCH = 1000
-    lr = .00001
+    NB_EPOCH = args.epochs
+    lr = args.lr
     robustification = False
     noise_level = 20
     latent_dim = 512
