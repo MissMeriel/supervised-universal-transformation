@@ -1,6 +1,8 @@
 import shutil
 import random
 import string
+import matplotlib
+matplotlib.use("agg")
 import matplotlib.pyplot as plt
 import time
 import numpy as np
@@ -27,9 +29,6 @@ from DatasetGenerator import TransformationDataSequence
 sys.path.append(f'../models')
 from basic_loss_functions import *
 from models.DAVE2pytorch import *
-
-
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -111,6 +110,10 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
 
 # https://matplotlib.org/stable/gallery/subplots_axes_and_figures/figure_title.html
 def validation(vae, dataset, device="cpu", batch=100):
+    import threading
+    plot_lock = threading.Lock()
+
+
     vae = vae.to(device).eval()
     base_model = torch.load(
         "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(device)
@@ -120,32 +123,35 @@ def validation(vae, dataset, device="cpu", batch=100):
     Path(f"samples_{NAME}/validation-indv").mkdir(exist_ok=True, parents=True)
     for i, hashmap in enumerate(trainloader, start=1):
         with torch.no_grad():
-            x = hashmap['image_transf'].float().to(device)
-            y = hashmap['image_base'].float().to(device)
-            recons, x_out, mu, log_var = vae(x)
-            pred_hw1 = base_model(y).detach().cpu().numpy()
-            pred_hw2 = base_model(x).detach().cpu().numpy()
-            pred_recons = base_model(recons).detach().cpu().numpy()
-            # tb_summary(x, recons, pred_orig, pred_recons)
-            grid_in = make_grid(x, 10)
-            grid_out = make_grid(recons, 10)
-            save_image(grid_in, f"samples_{NAME}/validation-sets/input{i:04d}.png")
-            save_image(grid_out, f"samples_{NAME}/validation-sets/output{i:04d}.png")
-            for j in range(x.shape[0]):
-                fig, (ax1, ax2, ax3) = plt.subplots(1, 3, layout='constrained', sharey=True)
-                hw1_img = np.transpose(y[j].detach().cpu().numpy(), (1, 2, 0))
-                hw2_img = np.transpose(x[j].detach().cpu().numpy(), (1,2,0))
-                recons_img = np.transpose(recons[j].detach().cpu().numpy(), (1,2,0))
-                ax1.imshow(hw1_img)
-                ax2.imshow(hw2_img)
-                ax3.imshow(recons_img)
-                ax1.set_title(f'hw1 pred: {pred_hw1[j][0]:.5f}')
-                ax2.set_title(f'hw2 pred: {pred_hw2[j][0]:.5f}')
-                ax3.set_title(f'recons pred: {pred_recons[j][0]:.5f}')
-                img_name = hashmap['img_name'][j].replace('/', '/\n').replace('\\', '/\n')
-                fig.suptitle(f"{img_name}\n\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=12)
-                plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
-                plt.close()
+            with plot_lock:
+
+                x = hashmap['image_transf'].float().to(device)
+                y = hashmap['image_base'].float().to(device)
+                recons, x_out, mu, log_var = vae(x)
+                pred_hw1 = base_model(y).detach().cpu().numpy()
+                pred_hw2 = base_model(x).detach().cpu().numpy()
+                pred_recons = base_model(recons).detach().cpu().numpy()
+                # tb_summary(x, recons, pred_orig, pred_recons)
+                grid_in = make_grid(x, 10)
+                grid_out = make_grid(recons, 10)
+                save_image(grid_in, f"samples_{NAME}/validation-sets/input{i:04d}.png")
+                save_image(grid_out, f"samples_{NAME}/validation-sets/output{i:04d}.png")
+                for j in range(x.shape[0]):
+                    fig, (ax1, ax2, ax3) = plt.subplots(1, 3) #, layout='constrained', sharey=True)
+                    hw1_img = np.transpose(y[j].detach().cpu().numpy(), (1, 2, 0))
+                    hw2_img = np.transpose(x[j].detach().cpu().numpy(), (1,2,0))
+                    recons_img = np.transpose(recons[j].detach().cpu().numpy(), (1,2,0))
+                    ax1.imshow(hw1_img)
+                    ax2.imshow(hw2_img)
+                    ax3.imshow(recons_img)
+                    ax1.set_title(f'hw1 pred: {pred_hw1[j][0]:.5f}')
+                    ax2.set_title(f'hw2 pred: {pred_hw2[j][0]:.5f}')
+                    ax3.set_title(f'recons pred: {pred_recons[j][0]:.5f}')
+                    img_name = hashmap['img_name'][j].replace('/', '/\n').replace('\\', '/\n')
+                    fig.suptitle(f"{img_name}\n\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=12)
+                    # fig.suptitle(f"{hashmap['img_name']}\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=16)
+                    plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
+                    plt.close(fig)
             if i > 10:
                 return
 
