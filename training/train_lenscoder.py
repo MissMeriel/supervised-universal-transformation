@@ -45,7 +45,7 @@ args = parse_arguments()
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 localtime = time.localtime()
 timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-NAME = f"samples_Lenscoder-origloss-dataindist-3_29-14_51-P61NAV-Lenscoder-{args.loss_fn}loss-dataindist-{args.procid}-{timestr}-{randstr}"
+NAME = f"samples_Lenscoder-latentloss-3_28-11_47-Lenscoder-{args.loss_fn}loss-dataindist-{args.procid}-{timestr}-{randstr}"
 Path("models").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
@@ -137,7 +137,7 @@ def validation(vae, dataset, device="cpu", batch=100):
                 save_image(grid_in, f"samples_{NAME}/validation-sets/input{i:04d}.png")
                 save_image(grid_out, f"samples_{NAME}/validation-sets/output{i:04d}.png")
                 for j in range(x.shape[0]):
-                    fig, (ax1, ax2, ax3) = plt.subplots(1, 3) #, layout='constrained', sharey=True)
+                    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, layout='constrained', sharey=True)
                     hw1_img = np.transpose(y[j].detach().cpu().numpy(), (1, 2, 0))
                     hw2_img = np.transpose(x[j].detach().cpu().numpy(), (1,2,0))
                     recons_img = np.transpose(recons[j].detach().cpu().numpy(), (1,2,0))
@@ -148,11 +148,11 @@ def validation(vae, dataset, device="cpu", batch=100):
                     ax2.set_title(f'hw2 pred: {pred_hw2[j][0]:.5f}')
                     ax3.set_title(f'recons pred: {pred_recons[j][0]:.5f}')
                     img_name = hashmap['img_name'][j].replace('/', '/\n').replace('\\', '/\n')
-                    fig.suptitle(f"{img_name}\n\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=12)
+                    fig.suptitle(f"{img_name}\n\nHW1-HW2 Prediction error: {(pred_hw1[j][0] - pred_hw2[j][0]):.5f}\n\nHW1-recons Prediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=12)
                     # fig.suptitle(f"{hashmap['img_name']}\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=16)
                     plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
                     plt.close(fig)
-            if i > 10:
+            if i > 5:
                 return
 
 
@@ -195,7 +195,7 @@ def main():
     # torch.save(model, model_filename)
 
     # C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\training\samples_Lenscoder-convKLDloss-dataindist-3_29-14_45-NO1QFP
-    model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder-origloss-dataindist-3_29-14_51-P61NAV/Lenscoder_featureloss_24k-512lat_1000epochs_32batch_Falserob.pt").to(device)
+    model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder-latentloss-3_28-11_47/Lenscoder_featureloss_38k-512lat_1000epochs_32batch_Falserob.pt").to(device)
     validation_dataset = TransformationDataSequence(args.validation_dataset, image_size=(model.input_shape[::-1]),
                                                   transform=Compose([ToTensor()]), \
                                                   robustification=robustification, noise_level=noise_level)
