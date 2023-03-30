@@ -119,7 +119,7 @@ def validation(vae, dataset, device="cpu", batch=100):
     Path(f"samples_{NAME}/validation-sets").mkdir(exist_ok=True, parents=True)
     Path(f"samples_{NAME}/validation-indv").mkdir(exist_ok=True, parents=True)
     for i, hashmap in enumerate(trainloader, start=1):
-        with torch.no_grad:
+        with torch.no_grad():
             x = hashmap['image_transf'].float().to(device)
             y = hashmap['image_base'].float().to(device)
             recons, x_out, mu, log_var = vae(x)
