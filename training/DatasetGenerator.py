@@ -157,7 +157,7 @@ class TransformationDataSequence(data.Dataset):
                 image_base = copy.deepcopy(sample["image_base"])
                 image_transf = copy.deepcopy(sample["image_transf"])
                 image_base, image_transf, y_steer = self.robustify(image_base, image_transf, y_steer)
-                return {"image_base": image_base, "image_transf": image_transf, "steering_input": y_steer, "throttle_input": sample["throttle_input"], "all": torch.FloatTensor([y_steer, sample["throttle_input"]])}
+                return {"image_base": image_base, "image_transf": image_transf, "steering_input": y_steer, "throttle_input": sample["throttle_input"], "img_name": str(img_name), "all": torch.FloatTensor([y_steer, sample["throttle_input"]])}
             else:
                 return self.cache[idx]
         img_name = self.all_image_paths[idx]
@@ -183,7 +183,7 @@ class TransformationDataSequence(data.Dataset):
             # image_base_orig = t(image_base_orig).float()
             # image_transf_orig = t(image_transf_orig).float()
 
-        sample = {"image_base": image_base, "image_transf": image_transf, "steering_input": torch.FloatTensor([y_steer]), "all": torch.FloatTensor([y_steer])}
+        sample = {"image_base": image_base, "image_transf": image_transf, "steering_input": torch.FloatTensor([y_steer]), "img_name": str(img_name), "all": torch.FloatTensor([y_steer])}
         orig_sample = {"image_base": image_base_orig, "image_transf": image_transf_orig,"steering_input": torch.FloatTensor([orig_y_steer]), "all": torch.FloatTensor([orig_y_steer])}
         try:
             self.cache[idx] = orig_sample
