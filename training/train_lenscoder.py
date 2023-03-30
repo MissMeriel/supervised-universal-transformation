@@ -46,7 +46,7 @@ args = parse_arguments()
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 localtime = time.localtime()
 timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-NAME = f"Lenscoder-{args.loss_fn}loss-dataindist-{args.procid}-{timestr}-{randstr}"
+NAME = f"samples_Lenscoder-origloss-dataindist-3_29-14_51-P61NAV-Lenscoder-{args.loss_fn}loss-dataindist-{args.procid}-{timestr}-{randstr}"
 Path("models").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
@@ -114,7 +114,7 @@ def validation(vae, dataset, device="cpu", batch=100):
     vae = vae.to(device).eval()
     base_model = torch.load(
         "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(device)
-    trainloader = DataLoader(dataset, batch_size=batch, shuffle=True)
+    trainloader = DataLoader(dataset, batch_size=batch, shuffle=False)
     transform = Compose([ToTensor()])
     Path(f"samples_{NAME}/validation-sets").mkdir(exist_ok=True, parents=True)
     Path(f"samples_{NAME}/validation-indv").mkdir(exist_ok=True, parents=True)
@@ -142,7 +142,8 @@ def validation(vae, dataset, device="cpu", batch=100):
                 ax1.set_title(f'hw1 pred: {pred_hw1[j][0]:.5f}')
                 ax2.set_title(f'hw2 pred: {pred_hw2[j][0]:.5f}')
                 ax3.set_title(f'recons pred: {pred_recons[j][0]:.5f}')
-                fig.suptitle(f'Prediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}', fontsize=16)
+                img_name = hashmap['img_name'][j].replace('/', '/\n').replace('\\', '/\n')
+                fig.suptitle(f"{img_name}\n\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=12)
                 plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
                 plt.close()
             if i > 10:
@@ -180,15 +181,16 @@ def main():
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print("Using device:", device, flush=True)
 
-    model = model.to(device)
-    model = train(model, trainloader, device=device, num_epochs=NB_EPOCH, sample_interval=20000, lr=lr)
-    model_filename = f"samples_{NAME}/Lenscoder_featureloss_{int(len(training_dataset)/1000)}k-{latent_dim}lat_{NB_EPOCH}epochs_{BATCH_SIZE}batch_{robustification}rob.pt"
-    model = model.to(torch.device("cpu"))
-    model = model.eval()
-    torch.save(model, model_filename)
+    # model = model.to(device)
+    # model = train(model, trainloader, device=device, num_epochs=NB_EPOCH, sample_interval=20000, lr=lr)
+    # model_filename = f"samples_{NAME}/Lenscoder_featureloss_{int(len(training_dataset)/1000)}k-{latent_dim}lat_{NB_EPOCH}epochs_{BATCH_SIZE}batch_{robustification}rob.pt"
+    # model = model.to(torch.device("cpu"))
+    # model = model.eval()
+    # torch.save(model, model_filename)
 
-    # model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder-latentloss-3_28-11_47/Lenscoder_featureloss_38k-512lat_1000epochs_32batch_Falserob.pt").to(device)
-    validation_dataset = TransformationDataSequence(args.training_dataset, image_size=(model.input_shape[::-1]),
+    # C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\training\samples_Lenscoder-convKLDloss-dataindist-3_29-14_45-NO1QFP
+    model = torch.load("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/training/samples_Lenscoder-origloss-dataindist-3_29-14_51-P61NAV/Lenscoder_featureloss_24k-512lat_1000epochs_32batch_Falserob.pt").to(device)
+    validation_dataset = TransformationDataSequence(args.validation_dataset, image_size=(model.input_shape[::-1]),
                                                   transform=Compose([ToTensor()]), \
                                                   robustification=robustification, noise_level=noise_level)
     validation(model, validation_dataset, device, batch=100)
