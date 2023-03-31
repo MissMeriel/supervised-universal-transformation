@@ -145,8 +145,9 @@ class TransformationDataSequence(data.Dataset):
         if random.random() > 0.75:
             gauss = kornia.filters.GaussianBlur2d((3, 3), (1.5, 1.5))
             image_transf = gauss(image_transf[None])[0]
-        image_base = torch.clamp(image_base + (torch.randn(*image_base.shape) / self.noise_level), 0, 1)
-        image_transf = torch.clamp(image_transf + (torch.randn(*image_transf.shape) / self.noise_level), 0, 1)
+        if self.noise_level is not None:
+            image_base = torch.clamp(image_base + (torch.randn(*image_base.shape) / self.noise_level), 0, 1)
+            image_transf = torch.clamp(image_transf + (torch.randn(*image_transf.shape) / self.noise_level), 0, 1)
         return image_base, image_transf, y_steer
 
     def __getitem__(self, idx):

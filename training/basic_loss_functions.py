@@ -82,6 +82,17 @@ def loss_fn_latent_kld(recons, x, mu, log_var, kld_weight):
     loss = recons_loss + latent_loss + kld_weight * kld_loss
     return loss, recons_loss, latent_loss #, pred_loss
 
+def loss_fn_prediction_kld(recons, x, mu, log_var, kld_weight):
+    recons_loss = F.mse_loss(recons, x)
+    kld_loss = torch.mean(
+        -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1), dim=0
+    )
+    pred_recons = base_model(recons)
+    pred_orig = base_model(x)
+    latent_loss = F.mse_loss(pred_recons, pred_orig)
+    loss = recons_loss + latent_loss + kld_weight * kld_loss
+    return loss, recons_loss, latent_loss #, pred_loss
+
 
 def loss_fn_conv(recons, x, mu, log_var, kld_weight, mode='same'):
     # recons_loss = F.mse_loss(recons, x)
