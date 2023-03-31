@@ -25,10 +25,10 @@ import sys
 from DatasetGenerator import TransformationDataSequence
 # from VIF_loss_functions import *
 # from SSIM_loss_functions import *
-
 sys.path.append(f'../models')
 from basic_loss_functions import *
 from models.DAVE2pytorch import *
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -41,6 +41,7 @@ def parse_arguments():
     args = parser.parse_args()
     print("ARGS:", args.training_dataset, args.validation_dataset, args.procid, args.epochs, args.loss_fn, args.lr)
     return args
+
 
 args = parse_arguments()
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))

@@ -132,7 +132,7 @@ def main():
     validation(model, args.validation_dataset_indist, device, batch=100)
     
     # disjoint distribution validation
-    validation(model, args.validation_dataset_indist, device, batch=100)
+    validation(model, args.validation_dataset_disjoint, device, batch=100)
 
 
 if __name__ == "__main__":
