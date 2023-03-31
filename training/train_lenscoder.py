@@ -154,7 +154,7 @@ def validation(vae, dataset, device="cpu", batch=100):
                     # fig.suptitle(f"{hashmap['img_name']}\nPrediction error: {(pred_hw1[j][0] - pred_recons[j][0]):.5f}", fontsize=16)
                     plt.savefig(f"samples_{NAME}/validation-indv/output-batch{i:04d}-sample{j:04d}.png")
                     plt.close(fig)
-            if i > 10:
+            if i > 5:
                 return
 
 
@@ -190,8 +190,6 @@ def main():
     model = model.eval()
     torch.save(model, model_filename)
 
-    # C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\training\samples_Lenscoder-convKLDloss-dataindist-3_29-14_45-NO1QFP
-    # model = torch.load("VAE-training/samples_Lenscoder-latent_kldloss-dataindist-0-3_29-20_58-8XZX8U/Lenscoder_featureloss_24k-512lat_1000epochs_32batch_Falserob.pt").to(device)
     validation_dataset = TransformationDataSequence(args.validation_dataset, image_size=(model.input_shape[::-1]),
                                                   transform=Compose([ToTensor()]), \
                                                   robustification=robustification, noise_level=noise_level)
