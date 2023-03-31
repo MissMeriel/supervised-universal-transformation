@@ -30,6 +30,7 @@ sys.path.append(f'../models')
 from basic_loss_functions import *
 from models.DAVE2pytorch import *
 
+import pytorch_fid
 
 class DatasetType(Enum):
     DISJOINT = 1
