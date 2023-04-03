@@ -204,6 +204,17 @@ class TransformationDataSequence(data.Dataset):
         all_outputs = np.array(all_outputs)
         moments = self.get_distribution_moments(all_outputs)
         return moments
+    
+    def get_all_outputs(self):
+        all_outputs = np.array([])
+        for key in self.dfs_hashmap.keys():
+            df = self.dfs_hashmap[key]
+            # IMG,PREDICTION,POSITION,ORIENTATION,KPH,STEERING_ANGLE_CURRENT
+            arr = df['PREDICTION'].to_numpy()
+            # print("len(arr)=", len(arr))
+            all_outputs = np.concatenate((all_outputs, arr), axis=0)
+            # print(f"Retrieved dataframe {key=}")
+        return np.array(all_outputs)
 
     ##################################################
     # ANALYSIS METHODS

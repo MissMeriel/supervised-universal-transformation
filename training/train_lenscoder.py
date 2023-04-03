@@ -47,7 +47,7 @@ args = parse_arguments()
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 localtime = time.localtime()
 timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
-NAME = f"Lenscoder-{args.loss_fn}loss-{args.procid}-{timestr}-{randstr}"
+NAME = f"pretrain-Lenscoder-{args.loss_fn}loss-{args.procid}-{timestr}-{randstr}"
 # Path("models").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}").mkdir(exist_ok=True, parents=True)
 Path(f"samples_{NAME}/iter").mkdir(exist_ok=True, parents=True)
@@ -113,11 +113,9 @@ def train(model, data_loader, num_epochs=300, device=torch.device("cpu"), sample
     return model
 
 # https://matplotlib.org/stable/gallery/subplots_axes_and_figures/figure_title.html
-def validation(vae, dataset, device="cpu", batch=100):
+def validation_viz(vae, dataset, device="cpu", batch=100):
     import threading
     plot_lock = threading.Lock()
-
-
     vae = vae.to(device).eval()
     base_model = torch.load(
         "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(device)
@@ -159,6 +157,26 @@ def validation(vae, dataset, device="cpu", batch=100):
                 return
 
 
+def validation(vae, dataset, device="cpu", batch=100):
+    vae = vae.to(device).eval()
+    base_model = torch.load(
+        "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt").to(device)
+    trainloader = DataLoader(dataset, batch_size=batch, shuffle=False)
+    # transform = Compose([ToTensor()])
+    mae = 0.0
+    for i, hashmap in enumerate(trainloader, start=1):
+        with torch.no_grad():
+            x = hashmap['image_transf'].float().to(device)
+            y = hashmap['image_base'].float().to(device)
+            recons, x_out, mu, log_var = vae(x)
+            pred_hw1 = base_model(y) #.detach().cpu().numpy()
+            pred_hw2 = base_model(x) #.detach().cpu().numpy()
+            pred_recons = base_model(recons).detach().cpu().numpy()
+            # tb_summary(x, recons, pred_orig, pred_recons)
+            mae += torch.sum(pred_hw1 - pred_recons) / dataset.size
+    return mae
+
+
 def main():
     from models.VAEsteer import Model
     print(args, flush=True)
@@ -195,6 +213,7 @@ def main():
                                                   transform=Compose([ToTensor()]), \
                                                   robustification=robustification, noise_level=noise_level)
     validation(model, validation_dataset, device, batch=100)
+    validation_viz(model, validation_dataset, device, batch=100)
 
 
 if __name__ == "__main__":
