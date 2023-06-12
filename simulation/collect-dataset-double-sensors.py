@@ -654,9 +654,9 @@ def main(topo_name="Lturn_uphill"):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # DONE:
-    topos = ["Lturn_uphill", "Rturn_rocks", "straight_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "whatever",
-                  "Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
+    # DONE:"Lturn_uphill", "Rturn_rocks", "straight_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "extra_utahlong", "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback",
+    #     #               "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad"]
+    topos = ["Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
                   "extrawinding_industrialrcasphalta", "extrawinding_industrial7978","Rturn_hirochitrack", "Rturn_sidequest", "Rturn_lanelines",
                   "Rturn_bridge", "Lturn_narrowservice", "Rturn_industrialrc_asphaltd", "Rturn_industrial7978", "Rturn_industrialrc_asphaltd",
                   "Rturn_industrialrc_asphaltb", "Lturn_junglemountain_road_e", "extra_jungledrift_road_b", "extra_jungle8161",
@@ -664,8 +664,7 @@ if __name__ == '__main__':
                   "extra_jungledrift_road_k", "extra_jungle8131", "extra_junglemountain_alt_a", "extra_junglemeander7994", "extra_jungle8000",
                   "extra_dock", "Rturn_bridge", "extra_winding",  "extra_whatever", "extra_utahtunnel", "extra_wideclosedtrack",
                   "extra_wideclosedtrack2", "extra_windingnarrowtrack", "extra_windingtrack", "extra_multilanehighway", "extra_multilanehighway2",
-                  "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",] #"extra_utahlong", "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback",
-    #               "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad"]
+                  "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",]
     # FIX: , "extrawinding_industrial8067","extra_windyjungle8082",
     # topos = ["extra_test1", "extra_test6","extra_test2", "extra_test3",   "extra_test1", "extra_test4",]
     for t in topos:

@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
+import scipy.misc
+import matplotlib.image
 
 def transform_depthoffield(img_base, img_depth):
     img_depth = np.array(img_depth, dtype=np.uint8)
@@ -29,8 +31,12 @@ def transform_depthoffield(img_base, img_depth):
         # plt.pause(0.01)
     # account for the edges of masks ?
     return img_new
-import scipy.misc
-import matplotlib.image
+
+sys.path.append("../../IFAN")
+from IFAN.predict import predict
+def transform_deblur(img):
+
+    return img_deblurred
 
 dir = "F:/supervised-transformation-dataset-alltransforms/automation_test_track-8290-Rturnrockylinedmtnroad-fisheye.None-run00-6_4-23_39-7ZYMOA"
 dir = "F:/supervised-transformation-dataset-alltransforms/automation_test_track-8396-test1-fisheye.None-run00-6_4-21_54-7ZYMOA"
