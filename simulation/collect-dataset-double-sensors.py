@@ -40,7 +40,10 @@ training_file = ""
 topo_id = None
 steer_integral, steer_prev_error = 0., 0.
 scenario_name = ""
-parentdir = "F:/supervised-transformation-dataset-alltransforms2"
+parentdir = "F:/supervised-transformation-dataset-alltransforms3"
+
+if not os.path.exists(parentdir):
+    os.makedirs(parentdir, exist_ok=True)
 
 def setup_sensors(vehicle, img_dims, fov=51):
     # fov = fov # 60 works for full lap #63 breaks on hairpin turn
@@ -149,25 +152,32 @@ def plot_racetrack_roads(bng, road_id, seg=None, reverse=False):
     selectedroads = []
     print("iterating over roads")
     for road in roads:
-        # print(road, roads[road]['drivability'])
-        if float(roads[road]['drivability']) > -1:
+        print(road, roads[road]['drivability'])
+        if float(roads[road]['drivability']) >= 1:
             road_edges = bng.get_road_edges(road)
-            x_temp, y_temp = [], []
+            xy_def = np.array([edge['middle'][:2] for edge in road_edges])
+            xydef1 = xy_def[:-1] -xy_def[1:]
+            xydef1 = np.square(xydef1)
+            xydef1 = np.sum(xydef1, axis=1)
+            xydef1 = np.sqrt(xydef1)
+            s = np.sum(xydef1)
             # xy_def = [edge['middle'][:2] for edge in road_edges]
             # dists = [distance(xy_def[i], xy_def[i+1]) for i,p in enumerate(xy_def[:-1])]
             # s = sum(dists)
             # if (s < 200 or s > 300):
-            # if (s < 200):
-            #     continue
+            if (s < 75):
+                continue
+            x_temp, y_temp = [], []
             for edge in road_edges:
                 x_temp.append(edge['middle'][0])
                 y_temp.append(edge['middle'][1])
                 symb = '{}{}'.format(random.choice(colors), random.choice(symbs))
             plt.plot(x_temp, y_temp, symb, label=road)
-            selectedroads.append(road)
-    for r in selectedroads: # ["8179", "8248", "8357", "8185", "7770", "7905", "8205", "8353", "8287", "7800", "8341", "7998"]:
-        a = bng.get_road_edges(r)
-        print(r, a[0]['middle'], roads[r]['drivability'])
+            print(road, road_edges[0]['middle'], roads[road]['drivability'], s)
+            # selectedroads.append(road)
+    # for r in selectedroads: # ["8179", "8248", "8357", "8185", "7770", "7905", "8205", "8353", "8287", "7800", "8341", "7998"]:
+    #     a = bng.get_road_edges(r)
+    #     print(r, a[0]['middle'], roads[r]['drivability'])
     plt.plot([sp['pos'][0]], [sp['pos'][1]], "bo")
     plt.legend(ncol=10)
     plt.show()
@@ -182,7 +192,7 @@ def get_nearby_racetrack_roads(bng, point_of_in, default_scenario):
     for road in roads:
         road_edges = bng.get_road_edges(road)
         x_temp, y_temp = [], []
-        if len(road_edges) < 25:
+        if len(road_edges) < 20:
             continue
         xy_def = [edge['middle'][:2] for edge in road_edges]
         # dists = [distance(xy_def[i], xy_def[i + 1]) for i, p in enumerate(xy_def[:-1:5])]
@@ -210,7 +220,7 @@ def get_nearby_racetrack_roads(bng, point_of_in, default_scenario):
 def road_analysis(bng, road_id, seg=None, reverse=False):
     global centerline, roadleft, roadright, scenario_name
     print("Performing road analysis...")
-    #plot_racetrack_roads(bng, road_id, seg=seg)
+    # plot_racetrack_roads(bng, road_id, seg=seg)
     # get_nearby_racetrack_roads(bng, spawn_point(scenario_name, road_id)['pos'], scenario_name)
     print(f"Getting road {road_id}...")
     edges = bng.get_road_edges(road_id)
@@ -382,7 +392,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, trans
             sensors = bng.poll_sensors(vehicle)
             image = sensors['front_cam']['colour'].convert('RGB')
             image_base = sensors['base_cam']['colour'].convert('RGB')
-            image_depth = sensors['front_cam']['depth'].convert('RGB')
+            image_depth = sensors['base_cam']['depth'].convert('RGB')
             image_lores = sensors['lores_cam']['colour'].convert('RGB')
             image_hires = sensors['hires_cam']['colour'].convert('RGB')
 
@@ -600,6 +610,9 @@ def main(topo_name="Lturn_uphill"):
     model_name = "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
+    # pytorch_total_params = sum(p.numel() for p in model.parameters())
+    # pytorch_trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # print("parameters:", pytorch_total_params, "trainable parameters:", pytorch_trainable_params)
     topo_id = topo_name
     transf_id = "fisheye"
     runs = 1
@@ -654,19 +667,31 @@ def main(topo_name="Lturn_uphill"):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # DONE:"Lturn_uphill", "Rturn_rocks", "straight_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "extra_utahlong", "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback",
-    #     #               "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad"]
-    topos = ["Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
-                  "extrawinding_industrialrcasphalta", "extrawinding_industrial7978","Rturn_hirochitrack", "Rturn_sidequest", "Rturn_lanelines",
-                  "Rturn_bridge", "Lturn_narrowservice", "Rturn_industrialrc_asphaltd", "Rturn_industrial7978", "Rturn_industrialrc_asphaltd",
-                  "Rturn_industrialrc_asphaltb", "Lturn_junglemountain_road_e", "extra_jungledrift_road_b", "extra_jungle8161",
-                  "extra_junglemountain_alt_f", "extra_junglemountain_road_i", "extra_junglemeander8114", "extra_jungledrift_road_m",
-                  "extra_jungledrift_road_k", "extra_jungle8131", "extra_junglemountain_alt_a", "extra_junglemeander7994", "extra_jungle8000",
-                  "extra_dock", "Rturn_bridge", "extra_winding",  "extra_whatever", "extra_utahtunnel", "extra_wideclosedtrack",
-                  "extra_wideclosedtrack2", "extra_windingnarrowtrack", "extra_windingtrack", "extra_multilanehighway", "extra_multilanehighway2",
-                  "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",]
+    # DONE: "extra_small_islandcoast_a_nw","extra_jungleouter_road_a", "extra_jungledrift_road_d", "extra_westcoastrocks", "extra_jungleouter_road_b"
+    # topos = ["Lturn_uphill", "extra_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "extra_utahlong",
+    #             "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback", "Rturn_small_island_ai_1", "Rturn_int_a_small_island",
+    #             "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad",
+    #             "extra_dock", "Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
+    #             "extrawinding_industrialrcasphalta", "extrawinding_industrial7978","Rturn_hirochitrack", "Rturn_sidequest", "Rturn_lanelines",
+    #             "Rturn_bridge", "Lturn_narrowservice", "Rturn_industrialrc_asphaltd", "Rturn_industrial7978",
+    #             "Rturn_industrialrc_asphaltb", "Lturn_junglemountain_road_e", "extra_jungledrift_road_b", "extra_jungle8161",
+    #             "extra_junglemountain_alt_f", "extra_junglemountain_road_i", "extra_junglemeander8114", "extra_jungledrift_road_m",
+    #             "extra_jungledrift_road_k", "extra_jungle8131", "extra_junglemountain_alt_a", "extra_junglemeander7994", "extra_jungle8000",
+    #             "extra_dock", "extra_winding",  "extra_whatever", "extra_utahtunnel", "extra_wideclosedtrack",
+    #             "extra_wideclosedtrack2", "extra_windingnarrowtrack", "extra_windingtrack", "extra_multilanehighway", "extra_multilanehighway2",
+    #             "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",
+    #             "Lturn_test3", "extra_driver_trainingvalidation2", "extra_lefthandperimeter",
+    #             "narrowjungleroad1", "narrowjungleroad2", "Lturnyellow", "straightcommercialroad", "Rturninnertrack", "straightwidehighway",
+    #             "Rturncommercialunderpass", "Lturncommercialcomplex", "Lturnpasswarehouse", "Rturnserviceroad", "Rturnlinedmtnroad",
+    #             "Rturn_industrial8022whitepave", "Rturn_industrial8068widewhitepave", "Rturn_industrialrc_asphaltc",
+    #             # "", "", "", "", "", "", "", "",
+    #             "dealwithlater"]
     # FIX: , "extrawinding_industrial8067","extra_windyjungle8082",
-    # topos = ["extra_test1", "extra_test6","extra_test2", "extra_test3",   "extra_test1", "extra_test4",]
+    # RUN:
+    # todo:
+    topos = ["extra_westoutskirts", "extra_westsuburbs", "extra_westsuburbs", "extra_westunderpasses", "extra_westLturnway", "extra_westofframp",]
+    #["extra_westdockleftside", "extra_westmtnroad", "extra_jungledrift_road_f", "extra_junglemain_tunnel", "extra_jungledrift_road_s", "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h", ]
+    #topos = ["extra_test7", "Lturn_uphill", "extra_test2", "extra_test1",  "extra_test3", "extra_test1", "extra_test4",]
     for t in topos:
         print(f"\n\nCOLLECTION FOR TOPO: {t}")
         main(topo_name=t)

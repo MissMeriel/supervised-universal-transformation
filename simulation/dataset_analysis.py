@@ -7,7 +7,7 @@ from scipy.ndimage import gaussian_filter
 
 from tabulate import tabulate
 from operator import itemgetter
-dir = "F:/supervised-transformation-dataset-alltransforms/"
+dir = "F:/supervised-transformation-dataset-alltransforms3/"
 table = []
 total = 0
 for subdir in os.listdir(dir):
