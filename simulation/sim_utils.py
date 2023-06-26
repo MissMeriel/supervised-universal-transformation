@@ -1147,9 +1147,16 @@ def get_topo(topo_id):
 
     return default_scenario, road_id, seg, reverse
 
+
 def get_transf(transf_id):
-    if transf_id is None:
-        img_dims = (240,135); fov = 51; transf = "None"
+    if transf_id == "regular" or transf_id is None:
+        img_dims = (240, 135); fov = 51; transf = "None"
+    elif transf_id == "medium":
+        img_dims = (192, 108); fov = 51; transf = "None"
+    elif transf_id == "mediumfisheye":
+        img_dims = (192, 108); fov = 75; transf = "None"
+    elif transf_id == "small":
+        img_dims = (144, 81); fov = 51; transf = "None"
     elif "fisheye" in transf_id:
         img_dims = (240,135); fov=75; transf = "fisheye"
     elif "resdec" in transf_id:
