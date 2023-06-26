@@ -2,6 +2,10 @@
 .idea*
 training/samples*
 training/VAE-training/*
+# specific ignores
+simulation/run-trajs
+simulation/testimgs
+simulation/testimgsdeblurred
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

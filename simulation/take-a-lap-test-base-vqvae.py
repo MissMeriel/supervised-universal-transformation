@@ -1,4 +1,3 @@
-import tree
 import pickle
 import os.path
 import cv2
@@ -43,300 +42,6 @@ centerline = []
 centerline_interpolated = []
 roadleft = []
 roadright = []
-#training_file = "" #"'metas/training_runs_{}-{}1-deletelater.txt'.format(default_scenario, road_id)
-
-
-# positive angle is to the right / clockwise
-def spawn_point(default_scenario, road_id, reverse=False, seg=1):
-    global lanewidth
-    if default_scenario == 'cliff':
-        #return {'pos':(-124.806, 142.554, 465.489), 'rot':None, 'rot_quat':(0, 0, 0.3826834, 0.9238795)}
-        return {'pos': (-124.806, 190.554, 465.489), 'rot': None, 'rot_quat': (0, 0, 0.3826834, 0.9238795)}
-    elif default_scenario == 'west_coast_usa':
-        # surface road (crashes early af)
-        if road_id == "13242":
-            return {'pos': (-733.7, -923.8, 163.9), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, 0.805, 0.592), -20)}
-        elif road_id == "8650":
-            if reverse:
-                return {'pos': (-358.719,-846.965,136.99), 'rot': None, 'rot_quat': turn_X_degrees((-0.0075049293227494,-0.014394424855709,0.32906526327133,0.9441676735878), 7)}
-            # yellow lanelines, left curve, driving on left
-            return {'pos': (-365.24, -854.45, 136.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 90)}
-        elif road_id == "12667":
-            # lanelines, uphill left curve
-            return {'pos': (-892.4, -793.4, 114.1), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 70)}
-        elif road_id == "8432":
-            # lanelines, wide 2direction highway, long left curve
-            if reverse:
-                return {'pos': (-871.9, -803.2, 115.3), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 165 - 180)}
-            return {'pos': (-390.4, -799.1, 139.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 165)}
-        elif road_id == "8518":
-            if reverse:
-                return {'pos': (-913.2, -829.6, 118.0), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 60)}
-            # starts on right turn, rock walls surrounding road, lanelines
-            return {'pos': (-390.5, -896.6, 138.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 20)}
-        elif road_id == "8417":
-            if reverse:
-                # road surrounding suburb, big intersection
-                # return {"pos": (-282.82, -875.592, 134.9), "rot": None, "rot_quat": turn_X_degrees((0, 0, -0.278, 0.961), 155)}
-                # past intersection
-                # return {"pos": (-306.01910400390625, -862.2595825195312, 135.1), "rot": None, "rot_quat": turn_X_degrees((0, 0, -0.278, 0.961), 155)}
-                # return {"pos": (-320.4444885253906, -853.4628295898438, 135.6), "rot": None, "rot_quat": turn_X_degrees((0, 0, -0.278, 0.961), 155)}
-                return {"pos": (-348.3262939453125, -831.0289916992188, 137.0), "rot": None, "rot_quat": turn_X_degrees((0, 0, -0.278, 0.961), 165)}
-            else:
-                # road surrounding suburb, starts on left side of road
-                return {'pos': (-402.7, -780.2, 141.3), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 0)}
-        # elif road_id == "8703":
-        #     if reverse:
-        #         # return {'pos': (-312.4, -856.8, 135.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 155)}
-        #     # 055.646|E|libbeamng.lua.V.updateGFX|Object position: vec3(-327.926,-846.741,136.099)
-        #     # 055.646|E|libbeamng.lua.V.updateGFX|Object rotation: quat(0.012735072523355,-0.0081959860399365,0.87504893541336,0.48379769921303)
-        #         return {'pos': (-327.926,-846.741,136.099), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 155)}
-        #     return {'pos': (-307.8, -784.9, 137.6), 'rot': None,
-        #             'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 80)}
-        elif road_id == "12641":
-            # if reverse:
-            #     return {'pos': (-964.2, 882.8, 75.1), 'rot': None,
-            #             'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 0)}
-            return {'pos': (-366.1753845214844, 632.2236938476562, 75.1), 'rot': None,
-                    'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 180)}
-        elif road_id == "13091":
-            if reverse:
-                return {'pos': (-903.6078491210938, -586.33154296875, 106.6), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 80)}
-            return {'pos': (-331.0728759765625, -697.2451782226562, 133.0), 'rot': None,
-                    'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 0)}
-        # elif road_id == "11602":
-        #     return {'pos': (-366.4, -858.8, 136.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 0)}
-        elif road_id == "12146":
-            if reverse:
-                return {'pos': (995.7, -855.0, 167.1), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -15)}
-            return {'pos': (-391.0, -798.8, 139.7), 'rot': None,
-                    'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -15)}
-        elif road_id == "13228":
-            return {'pos': (-591.5175170898438, -453.1298828125, 114.0), 'rot': None,
-                    'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 0)}
-        elif road_id == "13155":  # middle laneline on highway #12492 11930, 10368 is an edge
-            return {'pos': (-390.7796936035156, -36.612098693847656, 109.9), 'rot': None,
-                    'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -90)}
-        elif road_id == "10784":  # track # 13228  suburb edge, 12939 10371 12098 edge
-            if reverse:
-                # (800.905,350.394,156.297)
-                return {'pos': (800.905,350.394,156.297), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -135)}
-            # return {'pos': (57.05, -150.53, 125.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -115)}
-            # return {'pos': (86.1454,-118.969,127.519), 'rot': None, 'rot_quat': (-0.03234875574708,0.022467797622085,-0.8322811126709,0.55295306444168)}
-            return {'pos': (144.962, -96.1268, 128.935), 'rot': None, 'rot_quat': (-0.032797202467918, 0.024726673960686, -0.80050182342529, 0.59792125225067)}
-        elif road_id == "10673":
-            return {'pos': (-21.7, -826.2, 133.1), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -90)}
-        elif road_id == "12930":  # 13492 dirt road
-            # return {'pos': (-347.2, -824.7, 137.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)}
-            return {'pos': (-353.731,-830.905,137.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)}
-        elif road_id == "10988": # track
-            # return {'pos': (622.2, -251.1, 147.0), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -60)}
-            # return {'pos': (660.388,-247.67,147.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -160)}
-            if seg == 0: # straight portion
-                return {'pos': (687.5, -185.7, 146.9), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)}
-            elif seg == 1: # approaching winding portion
-                #  crashes around [846.0238647460938, 127.84288787841797, 150.64915466308594]
-                # return {'pos': (768.1991577148438, -108.50184631347656, 146.9), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)}
-                return {'pos': (781.2423095703125, -95.72360229492188, 147.4), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)}
-                return {'pos': (790.599,-86.7973,147.3), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)} # slightly better?
-            elif seg == 2:
-                return {'pos': (854.4, 136.8, 152.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -100)}
-            else:
-                return {'pos': (599.3, -252.3, 147.6), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -60)}
-        elif road_id == "13306":
-            return {'pos': (-310, -790.044921875, 137.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), -30)}
-        elif road_id == "13341":
-            return {'pos': (-393.4, -34.0, 109.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.278, 0.961), 90)}
-    elif default_scenario == 'smallgrid':
-        return {'pos':(0.0, 0.0, 0.0), 'rot':None, 'rot_quat':(0, 0, 0.3826834, 0.9238795)}
-        # right after toll
-        return {'pos': (-852.024, -517.391 + lanewidth, 106.620), 'rot': None, 'rot_quat': (0, 0, 0.926127, -0.377211)}
-        # return {'pos':(-717.121, 101, 118.675), 'rot':None, 'rot_quat':(0, 0, 0.3826834, 0.9238795)}
-        return {'pos': (-717.121, 101, 118.675), 'rot': None, 'rot_quat': (0, 0, 0.918812, -0.394696)}
-    elif default_scenario == 'automation_test_track':
-        if road_id == 'startingline':
-            return {'pos': (487.25, 178.73, 131.928), 'rot': None, 'rot_quat': (0, 0, -0.702719, 0.711467)}
-        elif road_id == "7991": # immediately crashes into guardrail
-            return {'pos': (57.229, 360.560, 128.3), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.711467), 180)}
-        elif road_id == "7846": # immediately leaves track
-            return {'pos': (-456.0, -100.3, 117.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.711467), 180)}
-        elif road_id == "7811":
-            return  {'pos': (-146.2, -255.5, 119.95), 'rot': None, 'rot_quat': turn_X_degrees((-0.021, -0.009, 0.740, 0.672), 180)}
-        elif road_id == "8185": # good for saliency testing
-            return {'pos': (174.92, -289.7, 120.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.711467), 180)}
-            # return {'pos': (-180.4, -253.0, 120.7), 'rot': None, 'rot_quat': (-0.008, 0.004, 0.779, 0.63)}
-            return {'pos': (-58.2675, -255.216, 120.175), 'rot': None, 'rot_quat': (-0.021, -0.009, 0.740, 0.672)}
-        elif road_id == "8293": # immediately leaves track
-            return {'pos': (-556.185, 386.985, 145.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.7115), 120)}
-        elif road_id == "8341": # dirt road
-            return {'pos': (775.5, -2.2, 132.6), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.711467), 90)}
-        # elif road_id == "8287": # actually the side of the road
-        #     return {'pos': (-198.8, -251.0, 119.8), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.711467), 0)}
-        # elif road_id == "7998": # actually the side of the road
-        #     return {'pos': (-162.6, 108.8, 122.1), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.702719, 0.711467), 60)}
-        elif road_id == "8357": # mountain road, immediately crashes into guardrail
-            return {'pos': (-450.45, 679.2, 249.45), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 150)}
-        elif road_id == "7770": # good candidate but actually the side of the road
-            # return {'pos': (-453.42, 61.7, 117.32), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 0)}
-            return {'pos': (-443.42, 61.7, 118), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 0)}
-        elif road_id == "8000": # immediately leaves track
-            return {'pos': (-49.1, 223, 127), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), -145)}
-        elif road_id == "7905": # dirt road, immediately leaves track
-            return {'pos': (768.2, 452.04, 145.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), -110)}
-        elif road_id == "8205":
-            return {'pos': (501.4, 178.6, 131.9), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 0)}
-        elif road_id == "8353":
-            return {'pos': (887.2, 359.8, 159.7), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), -20)}
-        elif road_id == "7882":
-            return {'pos': (-546.8, 568.0, 199.9), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 155)}
-        elif road_id == "8179":
-            return {'pos': (-738.1, 257.3, 133.4), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 150)}
-        # elif road_id == "8248": # actually the side of the road
-        #     return {'pos': (-298.8, 13.6, 118.4), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 180)}
-        # elif road_id == "7768": # actually the side of the road
-        #     return {'pos': (-298.8, 13.6, 118.4), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 180)}
-        # elif road_id == "7807": # actually the side of the road
-        #     return {'pos': (-251.2, -260.0, 119.2), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 0)}
-        # elif road_id == "8049":  # actually the side of the road
-        #     return {'pos': (-405.0, -26.6, 117.4), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), -110)}
-        elif road_id == 'starting line 30m down':
-            return {'pos': (530.25, 178.73, 131.928), 'rot': None, 'rot_quat': (0, 0, -0.702719, 0.711467)}
-        elif road_id == 'handlingcircuit':
-            # handling circuit
-            return {'pos': (-294.031, 10.4074, 118.518), 'rot': None, 'rot_quat': (0, 0, 0.708103, 0.706109)}
-        elif road_id == 'handlingcircuit2':
-            return {'pos': (-280.704, -25.4946, 118.794), 'rot': None, 'rot_quat': (-0.00862686, 0.0063203, 0.98271, 0.184842)}
-        elif road_id == 'handlingcircuit3':
-            return {'pos': (-214.929, 61.2237, 118.593), 'rot': None, 'rot_quat': (-0.00947676, -0.00484788, -0.486675, 0.873518)}
-        elif road_id == 'handlingcircuit4':
-            # return {'pos': (-180.663, 117.091, 117.654), 'rot': None, 'rot_quat': (0.0227101, -0.00198367, 0.520494, 0.853561)}
-            # return {'pos': (-171.183,147.699,117.438), 'rot': None, 'rot_quat': (0.001710215350613,-0.039731655269861,0.99312973022461,-0.11005393415689)}
-            return {'pos': (-173.009,137.433,116.701), 'rot': None,'rot_quat': (0.0227101, -0.00198367, 0.520494, 0.853561)}
-            return {'pos': (-166.679, 146.758, 117.68), 'rot': None,'rot_quat': (0.075107827782631, -0.050610285252333, 0.99587279558182, 0.0058960365131497)}
-        elif road_id == 'rally track':
-            return {'pos': (-374.835, 84.8178, 115.084), 'rot': None, 'rot_quat': (0, 0, 0.718422, 0.695607)}
-        elif road_id == 'highway': #(open, farm-like)
-            return {'pos': (-294.791, -255.693, 118.703), 'rot': None, 'rot_quat': (0, 0, -0.704635, 0.70957)}
-        elif road_id == 'highwayopp': # (open, farm-like)
-            return {'pos': (-542.719,-251.721,117.083), 'rot': None, 'rot_quat': (0.0098941307514906,0.0096141006797552,0.72146373987198,0.69231480360031)}
-        elif road_id == 'default':
-            return {'pos': (487.25, 178.73, 131.928), 'rot': None, 'rot_quat': (0, 0, -0.702719, 0.711467)}
-    elif default_scenario == 'industrial':
-        if road_id == 'west':
-            # western industrial area -- didnt work with AI Driver
-            return {'pos': (237.131, -379.919, 34.5561), 'rot': None, 'rot_quat': (-0.035, -0.0181, 0.949, 0.314)}
-        elif road_id == '7982':
-            # return {'pos': (160.905, -91.9654, 42.8511), 'rot': None, 'rot_quat': (-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
-            return {'pos': (178.65,-74.7136,43.0088), 'rot': None,
-                'rot_quat': (-0.0013968049315736,0.010517260991037,0.89051955938339,-0.45482122898102)}
-        # open industrial area -- didnt work with AI Driver
-        # drift course (dirt and paved)
-        elif road_id == 'driftcourse':
-            return {'pos': (20.572, 161.438, 44.2149), 'rot': None, 'rot_quat': (-0.003, -0.005, -0.636, 0.771)}
-        # rallycross course/default
-        elif road_id == 'rallycross':
-            return {'pos': (4.85287, 160.992, 44.2151), 'rot': None, 'rot_quat': (-0.0032, 0.003, 0.763, 0.646)}
-        # racetrack
-        elif road_id == 'racetrackright':
-            return {'pos': (184.983, -41.0821, 42.7761), 'rot': None, 'rot_quat': (-0.005, 0.001, 0.299, 0.954)}
-        elif road_id == 'racetrackleft':
-            return {'pos': (216.578, -28.1725, 42.7788), 'rot': None, 'rot_quat': (-0.0051, -0.003147, -0.67135, 0.74112)}
-        elif road_id == 'racetrackstartinggate':
-            return {'pos':(160.905, -91.9654, 42.8511), 'rot': None, 'rot_quat':(-0.0036226876545697, 0.0065293218940496, 0.92344760894775, -0.38365218043327)}
-        elif road_id == "racetrackstraightaway":
-            return {'pos':(262.328, -35.933, 42.5965), 'rot': None, 'rot_quat':(-0.010505940765142, 0.029969356954098, -0.44812294840813, 0.89340770244598)}
-        elif road_id == "racetrackcurves":
-            return {'pos':(215.912,-243.067,45.8604), 'rot': None, 'rot_quat':(0.029027424752712,0.022241719067097,0.98601061105728,0.16262225806713)}
-    elif default_scenario == "hirochi_raceway":
-        if road_id == "9039": # good candidate for input rect.
-            if seg == 0: # start of track, right turn; 183m; cutoff at (412.079,-191.549,38.2418)
-                return {'pos': (289.327,-281.458, 46.0), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -130)}
-            elif seg == 1: # straight road
-                return {'pos': (330.3320007324219, -217.5743408203125, 45.7054443359375), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -130)}
-            elif seg == 2: # left turn
-                # return {'pos': (439.0, -178.4, 35.3), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -85)}
-                # return {'pos': (448.1, -174.6, 34.6), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -85)}
-                return {'pos': (496.2, -150.6, 35.6), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -85)}
-            elif seg == 3:
-                return {'pos': (538.2, -124.3, 40.5), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -110)}
-            elif seg == 4: # straight; cutoff at vec3(596.333,18.7362,45.6584)
-                return {'pos': (561.7396240234375, -76.91995239257812, 44.7), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -130)}
-            elif seg == 5: # left turn; cutoff at (547.15234375, 115.24089050292969, 35.97171401977539)
-                return {'pos': (598.3154907226562, 40.60638427734375, 43.9), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -147)}
-            elif seg == 6:
-                return {'pos': (547.15234375, 115.24089050292969, 36.3), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -225)}
-            elif seg == 7:
-                return {'pos': (449.7561340332031, 114.96491241455078, 25.801856994628906), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -225)}
-            elif seg == 8: # mostly straight, good behavior; cutoff at  vec3(305.115,304.196,38.4392)
-                return {'pos': (405.81732177734375, 121.84907531738281, 25.04170036315918), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -190)}
-            elif seg == 9:
-                return {'pos': (291.171875, 321.78662109375, 38.6), 'rot': None,
-                        'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -190)}
-            elif seg == 10:
-                return {'pos': (216.40045166015625, 367.1772155761719, 35.99), 'rot': None,
-                        'rot_quat': (-0.037829957902431,0.0035844487138093,0.87171512842178,0.48853760957718)}
-            else:
-                return {'pos': (290.558, -277.280, 46.0), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.277698, 0.961), -130)}
-        elif road_id == "9205":
-            # return {'pos': (-3, 230.0, 26.2), 'rot': None, 'rot_quat': (0, 0, -0.277698, 0.960669)}
-            return {'pos': (-401.98, 243.3, 25.5), 'rot': None, 'rot_quat': (0, 0, -0.277698, 0.960669)}
-        # elif road_id == "9156":
-        #     return {'pos': (-401.98, 243.3, 25.5), 'rot': None, 'rot_quat': (0, 0, -0.277698, 0.960669)}
-        elif road_id == "9119":
-            return {"pos": (-452.972, 16.0, 29.9), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), 170)}
-        elif road_id == "9167":
-            return {'pos': (105.3, -96.4, 25.3), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), 40)}
-        elif road_id == "9156":
-            return {'pos': (-376.25, 200.8, 25.0), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), 45)}
-            # return {'pos': (-379.184,208.735,25.4121), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), 90)}
-        elif road_id == "9095":
-            return {'pos': (-150.1,174.6,32.2), 'rot': None, 'rot_quat': turn_X_degrees((0.00, 0.00, 0.00, 1.0), 150)}
-        elif road_id == "9189":
-            return {'pos': (-383.498, 436.979, 32.1), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), 120)}
-        elif road_id == "9202": # lanelines
-            return {'pos': (-315.2, 80.94, 32.33), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), -20)}
-        elif road_id == "9062":
-            return {'pos': (-315.2, 80.94, 32.33), 'rot': None, 'rot_quat': turn_X_degrees((0, 0, -0.2777, 0.9607), -20)}
-        else:
-            return {'pos': (-453.309, 373.546, 25.3623), 'rot': None, 'rot_quat': (0, 0, -0.2777, 0.9607)}
-    elif default_scenario == "small_island":
-        if road_id == "int_a_small_island":
-            return {"pos": (280.397, 210.259, 35.023), 'rot': None, 'rot_quat': turn_X_degrees((-0.013234630227089, 0.0080483080819249, -0.00034890600363724, 0.99987995624542), 110)}
-        elif road_id == "ai_1":
-            return {"pos": (314.573, 105.519, 37.5), 'rot': None, 'rot_quat': turn_X_degrees((-0.013234630227089, 0.0080483080819249, -0.00034890600363724, 0.99987995624542), 155)}
-        else:
-            return {'pos': (254.77, 233.82, 39.5792), 'rot': None, 'rot_quat': (-0.013234630227089, 0.0080483080819249, -0.00034890600363724, 0.99987995624542)}
-    elif default_scenario == "jungle_rock_island":
-        if road_id == "mountain_road_i":
-            return {'pos': (360.1, 231.1, 195.5), 'rot': None, 'rot_quat':turn_X_degrees((0.0, 0.0, 0.0, 1.0), 130)}
-
-        else:
-            return {'pos': (-10.0, 580.73, 156.8), 'rot': None, 'rot_quat': (-0.0067, 0.0051, 0.6231, 0.7821)}
-    elif default_scenario == "driver_training": # "extra_driver_trainingvalidation2"
-        if road_id == "7785":
-            if reverse:
-                # (10.8943,267.076,50.9651) (15.1089,259.945,51.0)
-                return {'pos': (11.8943,267.076,50.9651), 'rot': None,'rot_quat': turn_X_degrees((0.0, 0.0, 0.0, 1.0), 150)}
-                return {'pos': (19.981637954711914, 251.74679565429688, 50.6), 'rot': None,'rot_quat': turn_X_degrees((0.0, 0.0, 0.0, 1.0), 150)}
-            else:
-                return {'pos': (-95.3030776977539, 298.9210510253906, 51.9328689575), 'rot': None, 'rot_quat': turn_X_degrees((0.0, 0.0, 0.0, 1.0), 0)}
-        elif road_id == "north":
-            return {'pos': (-195.047, 253.654, 53.019), 'rot': None, 'rot_quat': (-0.006, -0.006, -0.272, 0.962)}
-        elif road_id == "west":
-            return {'pos': (-394.541, 69.052, 51.2327), 'rot': None,'rot_quat': (-0.0124, 0.0061, -0.318, 0.948)}
-        elif road_id == "default":
-            return {'pos': (60.6395, 70.8329, 38.3048), 'rot': None, 'rot_quat': (0.015, 0.006, 0.884, 0.467)}
-            # return {'pos': (32.3209, 89.8991, 39.135), 'rot': None, 'rot_quat': (0.0154, -0.007, 0.794, 0.607)}
-        elif road_id == "misshapenstraight":
-            return {'pos': (-111.879, 174.348, 50.5944), 'rot': None, 'rot_quat': (-0.012497862800956, -0.0070292484015226, -0.57099658250809, 0.82082730531693)}
-        elif road_id == "approachingfork":
-            return {'pos': (48.5345, 188.014, 48.2153), 'rot': None, 'rot_quat': (-0.013060956262052, -0.019843459129333, 0.80683600902557, 0.5902978181839)}
 
 
 def setup_sensors(vehicle, img_dims, fov=51):
@@ -360,8 +65,10 @@ def setup_sensors(vehicle, img_dims, fov=51):
     vehicle.attach_sensor('timer', timer)
     return vehicle
 
+
 def ms_to_kph(wheelspeed):
     return wheelspeed * 3.6
+
 
 def throttle_PID(kph, dt):
     global integral, prev_error, setpoint
@@ -375,6 +82,7 @@ def throttle_PID(kph, dt):
     w = kp * error + ki * integral + kd * deriv
     prev_error = error
     return w
+
 
 def diff_damage(damage, damage_prev):
     if damage is None or damage_prev is None:
@@ -425,6 +133,7 @@ def plot_deviation(trajectories, model, deflation_pattern, savefile="trajectorie
     # plt.show()
     # plt.pause(0.1)
 
+
 def lineseg_dists(p, a, b):
     """Cartesian distance from point to line segment
     Edited to support arguments as series, from:
@@ -453,11 +162,13 @@ def lineseg_dists(p, a, b):
 
     return np.hypot(h, c)
 
+
 #return distance between two any-dimenisonal points
 def distance(a, b):
     sqr = sum([math.pow(ai-bi, 2) for ai, bi in zip(a,b)])
     # return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
     return math.sqrt(sqr)
+
 
 def dist_from_line(centerline, point):
     a = [[x[0],x[1]] for x in centerline[:-1]]
@@ -467,6 +178,7 @@ def dist_from_line(centerline, point):
     dist = lineseg_dists([point[0], point[1]], a, b)
     return dist
 
+
 def calc_deviation_from_center(centerline, traj):
     dists = []
     for point in traj:
@@ -475,6 +187,7 @@ def calc_deviation_from_center(centerline, traj):
     stddev = statistics.stdev(dists)
     avg = sum(dists) / len(dists)
     return {"stddev":stddev, "mean":avg}
+
 
 def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False):
     print("Plotting scenario roads...")
@@ -525,6 +238,7 @@ def road_analysis_old(bng, road_id):
     centerline = actual_middle
     return actual_middle, adjusted_middle
 
+
 def road_analysis(bng, road_id):
     global centerline, roadleft, roadright
     print("Performing road analysis...")
@@ -545,6 +259,7 @@ def road_analysis(bng, road_id):
         roadright = [edge['right'] for edge in edges]
     return centerline, centerline
 
+
 def plot_trajectory(traj, title="Trajectory", label1="car traj."):
     global centerline, roadleft, roadright
     plt.plot([t[0] for t in centerline], [t[1] for t in centerline], 'r-')
@@ -560,6 +275,7 @@ def plot_trajectory(traj, title="Trajectory", label1="car traj."):
     plt.show()
     plt.pause(0.1)
 
+
 def plot_input(timestamps, input, input_type, run_number=0):
     plt.plot(timestamps, input)
     plt.xlabel('Timestamps')
@@ -568,6 +284,7 @@ def plot_input(timestamps, input, input_type, run_number=0):
     plt.savefig("Run-{}-{}.png".format(run_number, input_type))
     plt.show()
     plt.pause(0.1)
+
 
 def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
     global centerline, remaining_centerline, centerline_interpolated
@@ -621,6 +338,7 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
                        cling=True, offset=0.1)
     return line, bng
 
+
 # track is approximately 12.50m wide
 # car is approximately 1.85m wide
 def has_car_left_track(vehicle_pos, max_dist=5.0):
@@ -628,6 +346,7 @@ def has_car_left_track(vehicle_pos, max_dist=5.0):
     distance_from_centerline = dist_from_line(centerline_interpolated, vehicle_pos)
     dist = min(distance_from_centerline)
     return dist > max_dist, dist
+
 
 def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,135), fov=51, vehicle_model='etk800', default_color="green", steps_per_sec=15,
                  beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE4', port=64956):
@@ -660,6 +379,7 @@ def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,
     assert vehicle.skt
     # bng.resume()
     return vehicle, bng, scenario
+
 
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None):
@@ -789,8 +509,10 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
                }
     return results
 
+
 def distance2D(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
 
 def get_distance_traveled(traj):
     dist = 0.0
@@ -798,12 +520,14 @@ def get_distance_traveled(traj):
         dist += math.sqrt(math.pow(traj[i][0] - traj[i+1][0],2) + math.pow(traj[i][1] - traj[i+1][1],2) + math.pow(traj[i][2] - traj[i+1][2],2))
     return dist
 
+
 def turn_X_degrees(rot_quat, degrees=90):
     r = R.from_quat(list(rot_quat))
     r = r.as_euler('xyz', degrees=True)
     r[2] = r[2] + degrees
     r = R.from_euler('xyz', r, degrees=True)
     return tuple(r.as_quat())
+
 
 def add_barriers(scenario, default_scenario):
     with open(f'posefiles/{default_scenario}_barrier_locations.txt', 'r') as f:
@@ -833,48 +557,7 @@ def fisheye_inv(image):
         img.distort('barrel_inverse', (0.0, 0.0, -0.5, 1.5))
         img = np.array(img, dtype='uint8')
         return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-#
-# def get_topo(topo_id):
-#     if "extra_driver_trainingvalidation2" in topo_id: # USE FOR VALIDATION
-#         default_scenario = "driver_training"; road_id="7785"; seg = None; reverse=True
-#     elif "Rturn_servicecutthru" in topo_id:
-#         default_scenario = "hirochi_raceway"; road_id="9156"; seg=None; reverse=False
-#     elif "Rturn_bridge" in topo_id:
-#         default_scenario = "hirochi_raceway"; road_id="9095"; seg=None; reverse=False
-#     elif "extra_junglemountain_road_i" in topo_id:
-#         default_scenario = "jungle_rock_island"; road_id="mountain_road_i"; seg=None; reverse=False
-#     elif "windy" in topo_id:
-#         default_scenario = "west_coast_usa"; road_id = "10988"; seg = 1; reverse = False
-#     elif "straight" in topo_id:
-#         default_scenario = "automation_test_track"; road_id = "8185"; seg = None; reverse = False
-#     elif "Rturn" in topo_id:
-#         default_scenario="hirochi_raceway"; road_id="9039"; seg=0; reverse = False
-#     elif "Lturn" in topo_id:
-#         default_scenario = "west_coast_usa"; road_id = "12930"; seg = None; reverse = False
-#     elif "track2" in topo_id:
-#         default_scenario = "industrial"; road_id = "7982"; seg = None; reverse = False
-#     elif "track" in topo_id:
-#         default_scenario = "industrial"; road_id = "7982"; seg = None; reverse = False
-#     return default_scenario, road_id, seg, reverse
-#
-# def get_transf(transf_id):
-#     if transf_id == "regular" or transf_id is None:
-#         img_dims = (240, 135); fov = 51; transf = "None"
-#     elif transf_id == "medium":
-#         img_dims = (192, 108); fov = 51; transf = "None"
-#     elif transf_id == "mediumfisheye":
-#         img_dims = (192, 108); fov = 75; transf = "None"
-#     elif transf_id == "small":
-#         img_dims = (144, 81); fov = 51; transf = "None"
-#     elif "fisheye" in transf_id:
-#         img_dims = (240,135); fov=75; transf = "fisheye"
-#     elif "resdec" in transf_id:
-#         img_dims = (96, 54); fov = 51; transf = "resdec"
-#     elif "resinc" in transf_id:
-#         img_dims = (480,270); fov = 51; transf = "resinc"
-#     elif "depth" in transf_id:
-#         img_dims = (240, 135); fov = 51; transf = "depth"
-#     return img_dims, fov, transf
+
 
 def zero_globals():
     global centerline, centerline_interpolated, roadleft, roadright
@@ -882,6 +565,7 @@ def zero_globals():
     centerline_interpolated = []
     roadleft = []
     roadright = []
+
 
 def main(topo_id, hash="000"):
     global base_filename
