@@ -684,13 +684,13 @@ if __name__ == '__main__':
     #             "narrowjungleroad1", "narrowjungleroad2", "Lturnyellow", "straightcommercialroad", "Rturninnertrack", "straightwidehighway",
     #             "Rturncommercialunderpass", "Lturncommercialcomplex", "Lturnpasswarehouse", "Rturnserviceroad", "Rturnlinedmtnroad",
     #             "Rturn_industrial8022whitepave", "Rturn_industrial8068widewhitepave", "Rturn_industrialrc_asphaltc",
-    #             # "", "", "", "", "", "", "", "",
+    #             "extra_westdockleftside", "extra_westmtnroad", "extra_jungledrift_road_f", "extra_junglemain_tunnel", "extra_jungledrift_road_s",
+    #             "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h",
     #             "dealwithlater"]
     # FIX: , "extrawinding_industrial8067","extra_windyjungle8082",
     # RUN:
     # todo:
     topos = ["extra_westoutskirts", "extra_westsuburbs", "extra_westsuburbs", "extra_westunderpasses", "extra_westLturnway", "extra_westofframp",]
-    #["extra_westdockleftside", "extra_westmtnroad", "extra_jungledrift_road_f", "extra_junglemain_tunnel", "extra_jungledrift_road_s", "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h", ]
     #topos = ["extra_test7", "Lturn_uphill", "extra_test2", "extra_test1",  "extra_test3", "extra_test1", "extra_test4",]
     for t in topos:
         print(f"\n\nCOLLECTION FOR TOPO: {t}")

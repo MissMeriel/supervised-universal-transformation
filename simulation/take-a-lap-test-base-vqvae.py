@@ -16,19 +16,22 @@ import csv
 from ast import literal_eval
 import PIL
 import sys
-sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/DAVE2-Keras')
-from DAVE2pytorch import DAVE2PytorchModel, DAVE2v3
+# sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/DAVE2-Keras')
 # sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/superdeepbillboard')
-sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/BeamNGpy')
-sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/BeamNGpy/src/')
-from beamngpy import BeamNGpy, Scenario, Vehicle, setup_logging, StaticObject, ScenarioObject
-from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
-from beamngpy import ProceduralCube
+# sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/BeamNGpy')
+# sys.path.append(f'/mnt/c/Users/Meriel/Documents/GitHub/BeamNGpy/src/')
 # sys.path.append(f'{args.path2src}/GitHub/superdeepbillboard')
 # sys.path.append(f'{args.path2src}/GitHub/BeamNGpy')
 # sys.path.append(f'{args.path2src}/GitHub/BeamNGpy/src/')
-from wand.image import Image as WandImage
+# from wand.image import Image as WandImage
+import DAVE2pytorch
+from DAVE2pytorch import DAVE2PytorchModel, DAVE2v3
+from beamngpy import BeamNGpy, Scenario, Vehicle, setup_logging, StaticObject, ScenarioObject
+from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
+from beamngpy import ProceduralCube
+
 from torchvision.transforms import Compose, ToPILImage, ToTensor
+from models import vqvae
 from models.vqvae import VQVAE
 import string
 from sim_utils import *
@@ -581,12 +584,14 @@ def main(topo_id, hash="000"):
     # model_name = "F:/DAVE2v3-135x240-82samples-1000epoch-5108644-4_12-13_19-N12SOX/model-DAVE2v3-randomblurnoise-135x240-lr1e4-1000epoch-64batch-lossMSE-82Ksamples.pt"
     model_name = "F:/DAVE2-Keras/DAVE2v3-108x192-82samples-5000epoch-5116933-4_12-23_11-2D8U63/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
     #model_name = "F:/DAVE2v3-135x240-130samples-1000epoch-5357939-6_12-11_4-57X9JH/model-DAVE2v3-135x240-1000epoch-64batch-130Ksamples.pt"
+    model_name = "F:/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
     # vqvae_name = "F:/vqvae/results/vqvae_data_testRL_incLR_predloss.pth" # track
     vqvae_name = "F:/vqvae/results/vqvae_data_RLRturnfisheye.pth" # Rturn
     vqvae_name = "F:/vqvae/results/vqvae_data_RLstraightfisheye.pth" # straight
     vqvae_name = "F:/vqvae/results/vqvae_data_RLLturnfisheye.pth" #Lturn
     #vqvae_name = "F:/vqvae/results/vqvae_data_RLwindyfisheye_wed_may_24_12_58_15_2023.pth" #winding
     vqvae_name = "F:/vqvae_data_testwhatever_samples1000_epochs500_sat_jun_10_17_46_15_2023.pth"
+    vqvae_name = "F:/vqvae_data_testwhatever_samples500_epochs500_tue_jun_27_23_03_29_2023.pth"
     # vqvae_name = "F:/vqvae_data_testwhatever_samples5000_epochs500_sat_jun_10_19_06_23_2023.pth"
     # vqvae_name = "F:/vqvae_data_testwhatever_samples20000_epochs500_thu_jun_1_03_23_48_2023.pth"
     # vqvae_name = "F:/vqvae_data_testwhatever_samples40000_epochs500_sun_jun_4_09_36_58_2023.pth"
@@ -596,9 +601,8 @@ def main(topo_id, hash="000"):
     vqvae = VQVAE(128, 32, 2, 512, 64, .25).eval().to(device)
     checkpoint = torch.load(vqvae_name, map_location=device)
     vqvae.load_state_dict(checkpoint["model"])
-    #vqvae = None
-    # topo_id = "Rturn"
-    transf_id = "mediumfisheye"
+    vqvae = None
+    transf_id = "medium"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
 
@@ -668,7 +672,7 @@ if __name__ == '__main__':
     # main("Rturn_bridge", hash=hash)
     # main("extra_junglemountain_road_i", hash=hash)
     main("straight", hash=hash)
-    main("windy", hash=hash)
+    main("extra_winding", hash=hash)
     main("Lturn", hash=hash)
     main("Rturn", hash=hash)
-    main("track", hash=hash)
+    main("extrawinding_industrialtrack", hash=hash)
