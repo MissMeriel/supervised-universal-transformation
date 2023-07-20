@@ -11,7 +11,6 @@ from PIL import Image
 import PIL
 import matplotlib.pyplot as plt
 
-# from ResNet import ResNet152, ResNet50, ResNet101
 from DAVE2pytorch import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch
 from UUSTDatasetGenerator import MultiDirectoryDataSequence
 
@@ -21,7 +20,6 @@ import random, string, shutil
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from torch.utils import data
 from torch.utils.data import DataLoader, TensorDataset
 import torch.optim as optim
 from torchvision.transforms import Compose, ToPILImage, ToTensor, Resize, Lambda, Normalize
@@ -50,28 +48,30 @@ args = parse_args()
 
 def save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train):
     with open(f'./{newdir}/model-{iteration}-metainfo.txt', "w") as f:
-    f.write(f"{model_name=}\n"
-            f"total_samples={dataset.get_total_samples()}\n"
-            f"{args.epochs=}\n"
-            f"Warm start {args.pretrained_model=}"
-            f"{args.lr=}\n"
-            f"{args.batch=}\n"
-            f"{optimizer=}\n"
-            f"final_loss={running_loss / logfreq}\n"
-            f"{device=}\n"
-            f"{robustification=}\n"
-            f"{noise_level=}\n"
-            f"dataset_moments={dataset.get_outputs_distribution()}\n"
-            f"{time_to_train=}\n"
-            f"dirs={dataset.get_directories()}")
+        f.write(f"{model_name=}\n"
+                f"total_samples={dataset.get_total_samples()}\n"
+                f"{args.epochs=}\n"
+                f"Warm start {args.pretrained_model=}"
+                f"{args.lr=}\n"
+                f"{args.batch=}\n"
+                f"{optimizer=}\n"
+                f"final_loss={running_loss / logfreq}\n"
+                f"{device=}\n"
+                f"{robustification=}\n"
+                f"{noise_level=}\n"
+                f"dataset_moments={dataset.get_outputs_distribution()}\n"
+                f"{time_to_train=}\n"
+                f"dirs={dataset.get_directories()}")
 
 def main_pytorch_model():
     start_time = time.time()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     input_shape = tuple([int(d) for d in args.img_dims.split(" ")]) #(81, 144) # (108, 192) # (135, 240)
     print(f"{input_shape=}")
+    print(f"{device=}", flush=True)
     model = DAVE2v3(input_shape=input_shape)
     if args.pretrained_model is not None:
-        model = model.load(args.pretrained_model)
+        model = model.load(args.pretrained_model, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
     robustification = True
     noise_level = 15
@@ -99,9 +99,8 @@ def main_pytorch_model():
         shutil.copyfile(__file__, f"{newdir}/{__file__.split('/')[-1]}", follow_symlinks=False)
         shutil.copyfile("UUSTDatasetGenerator.py", f"{newdir}/UUSTDatasetGenerator.py", follow_symlinks=False)
     iteration = f'{model._get_name()}-{input_shape[0]}x{input_shape[1]}-{args.epochs}epoch-{args.batch}batch-{int(dataset.get_total_samples()/1000)}Ksamples'
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
     print(f"{iteration=}", flush=True)
-    print(f"{device=}", flush=True)
     model = model.to(device)
     # if loss doesnt level out after 20 epochs, either inc epochs or inc learning rate
     optimizer = optim.Adam(model.parameters(), lr=args.lr) #, betas=(0.9, 0.999), eps=1e-08)

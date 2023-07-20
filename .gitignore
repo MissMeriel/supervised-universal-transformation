@@ -1,4 +1,7 @@
 # project specific
+.venv-*
+transformations/figs*
+*/slurm-*.out
 .idea*
 training/samples*
 training/VAE-training/*

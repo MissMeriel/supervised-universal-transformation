@@ -19,7 +19,8 @@ import random
 from torchvision.transforms import Compose, ToTensor, PILToTensor, functional as transforms
 from io import BytesIO
 import skimage
-import transforms
+sys.path.append("../transformations")
+import transformations
 
 def stripleftchars(s):
     for i in range(len(s)):
@@ -151,13 +152,13 @@ class MultiDirectoryDataSequence(data.Dataset):
         image = Image.open(img_name)
         if self.effect is not None:
             if self.effect == "fisheye":
-                image_base = transforms.fisheye(np.array(image))
+                image_base = transformations.transforms.fisheye(np.array(image))
             elif self.effect == "resdec":
-                image_base = transforms.resize_pil(image, (67, 120))
+                image_base = transformations.transforms.resize_pil(image, (67, 120))
             elif self.effect == "resinc":
-                image_base = transforms.resize_pil(image, (270, 480))
+                image_base = transformations.transforms.resize_pil(image, (270, 480))
             elif self.effect == "depth":
-                image_base = transforms.blur_computational(np.array(image))
+                image_base = transformations.transforms.blur_computational(np.array(image))
         else:
             image_base = image.resize(self.image_size)
         image_base = self.transform(image_base)
