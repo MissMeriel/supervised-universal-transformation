@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+. /p/sdbb/supervised-universal-transformation/.venv-sut/bin/activate
+python pretrain_train_lenscoder.py -p samples_disjointtrain-Lenscoder-latent_kldloss-4930710-4_5-16_16-TYMJS4/Lenscoder_16k-512lat_1000epochs_32batch_Falserob.pt -t /p/sdbb/supervised-transformation-dataset-indistribution/ -v /p/sdbb/supervised-transformation-validation -o $SLURM_JOB_ID -e 1000 -l prediction_kld -r 0.0001
