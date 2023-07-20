@@ -184,7 +184,7 @@ def spawn_point(default_scenario, road_id, reverse=False, seg=1):
         # elif road_id == "8286": # roundabout only
         #     return {"pos": (-137.96646118164062,-27.3629093170166,116.99319458007812), 'rot':None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 0)}
         elif road_id == "8038": #winding service road
-            return {"pos": (-487.9,35.3,117.2), 'rot':None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), -30)}
+            return {"pos": (-487.9,35.3,117.7), 'rot':None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), -30)}
         # elif road_id == "7726":
         #     return {"pos": (-162.8,-103.3,117.6), 'rot':None, 'rot_quat': turn_X_degrees((0, 0, -0.703, 0.711), 0)}
         # elif road_id == "8339": # road edge
@@ -866,7 +866,6 @@ def get_topo(topo_id):
         default_scenario = "industrial"; road_id="rc_asphaltc"; seg=None; reverse=False
     elif "Rturn_industrialrc_asphaltb" in topo_id:
         default_scenario = "industrial"; road_id="rc_asphaltb"; seg=None; reverse=False
-
     elif "Rturn_industrial8022whitepave" in topo_id:
         default_scenario = "industrial"; road_id="8022"; seg=None; reverse=False
     elif "Rturn_industrial8068widewhitepave" in topo_id:
@@ -992,13 +991,13 @@ def get_topo(topo_id):
         default_scenario = "jungle_rock_island"; road_id="drift_road_a"; seg=None; reverse=False
     elif "extra_junglemountain_road_h" in topo_id:
         default_scenario = "jungle_rock_island"; road_id="mountain_road_h"; seg=None; reverse=False
+    # TODO: Finish testing jungle_rock_island roads
     elif "extra_test2" in topo_id:
         default_scenario = "jungle_rock_island"; road_id="drift_road_c"; seg=None; reverse=False
     elif "extra_test2" in topo_id:
         default_scenario = "jungle_rock_island"; road_id="mountain_alt_e"; seg=None; reverse=False
     elif "extra_test2" in topo_id:
         default_scenario = "jungle_rock_island"; road_id="drift_road_p"; seg=None; reverse=False
-
 
     # driver_training roads
     elif "Lturn_test3" in topo_id: # USE FOR VALIDATION
@@ -1028,7 +1027,6 @@ def get_topo(topo_id):
         default_scenario = "italy"; road_id=""; seg=None; reverse=False
 
     # utah roads
-    # TODO: finish testing utah roads
     elif "extra_utahtunnel" in topo_id:
         default_scenario = "utah"; road_id = "15152"; seg=None; reverse = False
     elif topo_id == "extra_utahlong":
@@ -1043,6 +1041,7 @@ def get_topo(topo_id):
         default_scenario = "utah"; road_id = "14912"; seg=None; reverse = False
     elif topo_id == "extra_utahturnlane": # turning lane near tunnel, too short
         default_scenario = "utah"; road_id = "14923"; seg=None; reverse = False
+    # TODO: finish testing utah roads
     elif topo_id == "extra_test6":
         default_scenario = "utah"; road_id = ""; seg=None; reverse = False
     # elif topo_id == "extra_test6":
@@ -1100,7 +1099,6 @@ def get_topo(topo_id):
     #
 
     # west_coast_usa roads
-    # TODO: finish testing west_coast_usa roads
     elif "Lturn_uphill" in topo_id:
         default_scenario = "west_coast_usa"; road_id="12667"; seg=None; reverse=False
     elif "extra_westcoastrocks" in topo_id:
@@ -1132,6 +1130,7 @@ def get_topo(topo_id):
         default_scenario = "west_coast_usa"; road_id = "12930"; seg=None; reverse = False
     elif topo_id == "extra_westofframp":
         default_scenario = "west_coast_usa"; road_id = "11635"; seg=None; reverse = False
+    # TODO: finish testing west_coast_usa roads
 
     # original roads
     elif "straight" in topo_id:
@@ -1154,16 +1153,20 @@ def get_transf(transf_id):
     elif transf_id == "medium":
         img_dims = (192, 108); fov = 51; transf = "None"
     elif transf_id == "mediumfisheye":
-        img_dims = (192, 108); fov = 75; transf = "None"
+        img_dims = (192, 108); fov = 75; transf = "fisheye"
+    elif transf_id == "mediumdepth":
+        img_dims = (192, 108); fov = 51; transf = "depth"
     elif transf_id == "small":
         img_dims = (144, 81); fov = 51; transf = "None"
     elif "fisheye" in transf_id:
         img_dims = (240,135); fov=75; transf = "fisheye"
-    elif "resdec" in transf_id:
+    elif transf_id == "resdec":
         img_dims = (96, 54); fov = 51; transf = "resdec"
-    elif "resinc" in transf_id:
+    elif transf_id == "resdec2":
+        img_dims = (120, 67); fov = 51; transf = "None"
+    elif transf_id == "resinc":
         img_dims = (480,270); fov = 51; transf = "resinc"
-    elif "depth" in transf_id:
+    elif transf_id == "depth":
         img_dims = (240, 135); fov = 51; transf = "depth"
     return img_dims, fov, transf
 

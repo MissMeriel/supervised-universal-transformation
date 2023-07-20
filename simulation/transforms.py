@@ -8,6 +8,7 @@ from skimage.filters import gaussian
 import scipy.misc
 import matplotlib.image
 
+
 # generate shallow depth of field RGB image using depth image
 def blur(img_base, img_depth):
     img_depth = np.array(img_depth, dtype=np.uint8)

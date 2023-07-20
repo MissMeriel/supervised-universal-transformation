@@ -35,6 +35,7 @@ from models import vqvae
 from models.vqvae import VQVAE
 import string
 from sim_utils import *
+from transformations import transformations
 
 # globals
 integral, prev_error = 0.0, 0.0
@@ -48,7 +49,6 @@ roadright = []
 
 
 def setup_sensors(vehicle, img_dims, fov=51):
-    # Set up sensors
     fov = fov # 60 works for full lap #63 breaks on hairpin turn
     resolution = img_dims #(240, 135) #(400,225) #(320, 180) #(1280,960) #(512, 512)
     pos = (-0.5, 0.38, 1.3)
@@ -56,16 +56,11 @@ def setup_sensors(vehicle, img_dims, fov=51):
     front_camera = Camera(pos, direction, fov, resolution,
                           colour=True, depth=True, annotation=True)
 
-    gforces = GForces()
-    electrics = Electrics()
-    damage = Damage()
-    timer = Timer()
-
     vehicle.attach_sensor('front_cam', front_camera)
-    vehicle.attach_sensor('gforces', gforces)
-    vehicle.attach_sensor('electrics', electrics)
-    vehicle.attach_sensor('damage', damage)
-    vehicle.attach_sensor('timer', timer)
+    vehicle.attach_sensor('gforces', GForces())
+    vehicle.attach_sensor('electrics', Electrics())
+    vehicle.attach_sensor('damage', Damage())
+    vehicle.attach_sensor('timer', Timer())
     return vehicle
 
 
@@ -123,8 +118,8 @@ def plot_deviation(trajectories, model, deflation_pattern, savefile="trajectorie
     y.sort()
     min_x, max_x = x[0], x[-1]
     min_y, max_y = y[0], y[-1]
-    plt.xlim(min_x - 5, max_x + 5)
-    plt.ylim(min_y - 5, max_y + 5)
+    plt.xlim(min_x - 12, max_x + 12)
+    plt.ylim(min_y - 12, max_y + 12)
 
     plt.title(f'Trajectories with {model} \n{savefile}')
     # plt.legend()
@@ -290,7 +285,7 @@ def plot_input(timestamps, input, input_type, run_number=0):
 
 
 def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
-    global centerline, remaining_centerline, centerline_interpolated
+    global centerline, centerline_interpolated
     line = []; points = []; point_colors = []; spheres = []; sphere_colors = []; traj = []
     print("Performing road analysis...")
     actual_middle, adjusted_middle = road_analysis(bng, road_id)
@@ -302,7 +297,6 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
     # temp = [list(spawn['pos'])]; temp.extend(middle); middle = temp
     # middle.extend(middle_end)
     middle = actual_middle
-    remaining_centerline = copy.deepcopy(middle)
     timestep = 0.1; elapsed_time = 0; count = 0
     # set up adjusted centerline
     for i,p in enumerate(middle[:-1]):
@@ -331,11 +325,7 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
     print("beginning of script:{}".format(middle[0]))
     # plot_trajectory(traj, "Points on Script (Final)", "AI debug line")
     # centerline = copy.deepcopy(traj)
-    remaining_centerline = copy.deepcopy(traj)
     centerline_interpolated = copy.deepcopy(traj)
-    for i in range(4):
-        centerline.extend(copy.deepcopy(centerline))
-        remaining_centerline.extend(copy.deepcopy(remaining_centerline))
     bng.add_debug_line(points, point_colors,
                        spheres=spheres, sphere_colors=sphere_colors,
                        cling=True, offset=0.1)
@@ -362,6 +352,7 @@ def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,
     # beamng = BeamNGpy('localhost', 64256, home='C:/Users/Meriel/Documents/BeamNG.tech.v0.21.3.0', user='C:/Users/Meriel/Documents/BeamNG.tech')
     scenario = Scenario(default_scenario, 'research_test')
     vehicle = Vehicle('ego_vehicle', model=vehicle_model, licence='EGO', color=default_color)
+    print(f"IMG DIMS IN SETUP={img_dims}")
     vehicle = setup_sensors(vehicle, img_dims, fov=fov)
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
     print(default_scenario, road_id, seg, spawn)
@@ -385,7 +376,8 @@ def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,
 
 
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
-                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None):
+                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
+                 transf=None, detransf=None):
     global base_filename
     global integral, prev_error, setpoint
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
@@ -425,9 +417,9 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     start_time = sensors['timer']['time']
     outside_track = False
     transform = Compose([ToTensor()])
-    writedir = f"{default_scenario}-{road_id}-lap-test"
-    if not os.path.isdir(writedir):
-        os.mkdir(writedir)
+    # writedir = f"{default_scenario}-{road_id}-lap-test"
+    # if not os.path.isdir(writedir):
+    #     os.mkdir(writedir)
     # with open(f"{writedir}/data.txt", "w") as f:
     # f.write(f"IMG,PREDICTION,POSITION,ORIENTATION,KPH,STEERING_ANGLE_CURRENT\n")
     while kph < 35:
@@ -442,9 +434,15 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         sensors = bng.poll_sensors(vehicle)
         image = sensors['front_cam']['colour'].convert('RGB')
         image_seg = sensors['front_cam']['annotation'].convert('RGB')
-        # image = image.resize((240,135))
-        # image = cv2.resize(np.array(image), (135,240))
-        # image = fisheye_inv(image)
+        image_depth = sensors['front_cam']['depth'].convert('RGB')
+        if transf is not None:
+            if "depth" in transf:
+                transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
+
+        if detransf is not None:
+            if "res" in detransf:
+                image = image.resize((192, 108))
+                # image = cv2.resize(np.array(image), (135,240))
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
@@ -452,10 +450,11 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         dt = (sensors['timer']['time'] - start_time) - runtime
         try:
             processed_img = model.process_image(image).to(device)
-        except:
+        except Exception as e:
             processed_img = transform(np.asarray(image))[None]
         if vqvae is not None:
             embedding_loss, processed_img, perplexity = vqvae(processed_img)
+        #print(f"{processed_img.shape=}")
         prediction = model(processed_img)
         steering = float(prediction.item())
         runtime = sensors['timer']['time'] - start_time
@@ -546,20 +545,20 @@ def add_barriers(scenario, default_scenario):
                                 shape='levels/Industrial/art/shapes/misc/concrete_road_barrier_a.dae')
             scenario.add_object(ramp)
 
-def fisheye_wand(image, filename=None):
-    with WandImage.from_array(image) as img:
-        img.virtual_pixel = 'transparent'
-        img.distort('barrel', (0.1, 0.0, -0.05, 1.0))
-        img.alpha_channel = False
-        img = np.array(img, dtype='uint8')
-        return cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
-
-def fisheye_inv(image):
-    with WandImage.from_array(image) as img:
-        img.virtual_pixel = 'transparent'
-        img.distort('barrel_inverse', (0.0, 0.0, -0.5, 1.5))
-        img = np.array(img, dtype='uint8')
-        return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+# def fisheye_wand(image, filename=None):
+#     with WandImage.from_array(image) as img:
+#         img.virtual_pixel = 'transparent'
+#         img.distort('barrel', (0.1, 0.0, -0.05, 1.0))
+#         img.alpha_channel = False
+#         img = np.array(img, dtype='uint8')
+#         return cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
+#
+# def fisheye_inv(image):
+#     with WandImage.from_array(image) as img:
+#         img.virtual_pixel = 'transparent'
+#         img.distort('barrel_inverse', (0.0, 0.0, -0.5, 1.5))
+#         img = np.array(img, dtype='uint8')
+#         return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
 
 def zero_globals():
@@ -573,52 +572,39 @@ def zero_globals():
 def main(topo_id, hash="000"):
     global base_filename
     zero_globals()
-    # model_name = "F:/DAVE2v3-81x144-99Ksamples-500epoch-4930198-3_31-22_58-82FATC/model-DAVE2v3-randomblurnoise-81x144-lr1e4-500epoch-64batch-lossMSE-99Ksamples.pt"
-    # model_name = "F:/DAVE2v3-81x144-99Ksamples-500epoch-4930194-3_31-22_18-HYPI4L/model-DAVE2v3-randomblurnoise-81x144-lr1e4-500epoch-64batch-lossMSE-99Ksamples.pt"
-    # model_name = "F:/DAVE2v3-135x240-99Ksamples-500epoch-4929959-3_29-19_14-2QPIVB/model-DAVE2v3-randomblurnoise-135x240-lr1e4-500epoch-64batch-lossMSE-99Ksamples.pt"
-    # model_name = "F:/DAVE2v3-135x240-82samples-500epoch-4930307-4_2-14_24-CCYHQK/model-DAVE2v3-randomblurnoise-135x240-lr1e4-500epoch-64batch-lossMSE-82Ksamples.pt"
-    # model_name = "F:/DAVE2v3-81x144-82samples-500epoch-4930306-4_2-14_24-RBALAQ/model-DAVE2v3-randomblurnoise-81x144-lr1e4-500epoch-64batch-lossMSE-82Ksamples.pt"
-    # model_name = "F:/DAVE2v3-81x144-99samples-1000epoch-5108267-4_10-12_26-DGB5XQ/model-DAVE2v3-randomblurnoise-81x144-lr1e4-1000epoch-64batch-lossMSE-99Ksamples.pt"
-    # model_name = "F:/DAVE2v3-108x192-82samples-1000epoch-5116933-4_10-17_9-2RIWIM/model-DAVE2v3-randomblurnoise-108x192-lr1e4-1000epoch-64batch-lossMSE-82Ksamples.pt"
-    # model_name = "F:/DAVE2v3-108x192-82samples-5000epoch-5116933-4_12-23_11-2D8U63/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
-    # model_name = "F:/DAVE2v3-135x240-82samples-1000epoch-5108644-4_12-13_19-N12SOX/model-DAVE2v3-randomblurnoise-135x240-lr1e4-1000epoch-64batch-lossMSE-82Ksamples.pt"
-    model_name = "F:/DAVE2-Keras/DAVE2v3-108x192-82samples-5000epoch-5116933-4_12-23_11-2D8U63/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
-    #model_name = "F:/DAVE2v3-135x240-130samples-1000epoch-5357939-6_12-11_4-57X9JH/model-DAVE2v3-135x240-1000epoch-64batch-130Ksamples.pt"
-    model_name = "F:/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    model_name = "F:/SUT-baselines/DAVE2v3-fisheye-108x192-145samples-5000epoch-5372021-7_14-0_8-8LX2GG/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch500-best013.pt"
-    # vqvae_name = "F:/vqvae/results/vqvae_data_testRL_incLR_predloss.pth" # track
-    vqvae_name = "F:/vqvae/results/vqvae_data_RLRturnfisheye.pth" # Rturn
-    vqvae_name = "F:/vqvae/results/vqvae_data_RLstraightfisheye.pth" # straight
-    vqvae_name = "F:/vqvae/results/vqvae_data_RLLturnfisheye.pth" #Lturn
-    #vqvae_name = "F:/vqvae/results/vqvae_data_RLwindyfisheye_wed_may_24_12_58_15_2023.pth" #winding
-    vqvae_name = "F:/vqvae_data_testwhatever_samples1000_epochs500_sat_jun_10_17_46_15_2023.pth"
-    vqvae_name = "F:/vqvae_data_testwhatever_samples500_epochs500_tue_jun_27_23_03_29_2023.pth"
-    # vqvae_name = "F:/vqvae_data_testwhatever_samples5000_epochs500_sat_jun_10_19_06_23_2023.pth"
-    # vqvae_name = "F:/vqvae_data_testwhatever_samples20000_epochs500_thu_jun_1_03_23_48_2023.pth"
-    # vqvae_name = "F:/vqvae_data_testwhatever_samples40000_epochs500_sun_jun_4_09_36_58_2023.pth"
-    # vqvae_name = "F:/vqvae_data_testwhatever_samplesall_epochs500_wed_jun_7_15_48_59_2023.pth"
+    model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
+    #model_name = "F:/SUT-baselines/baseline2/DAVE2v3-fisheye-108x192-145samples-5000epoch-5372021-7_14-0_8-8LX2GG/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch500-best013.pt"
+    model_name = "F:/SUT-baselines/baseline2/DAVE2v3-fisheye-108x192-145samples-5000epoch-5377774-7_12-12_24-Q9VSHM/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch571-best018.pt"
+    # model_name = "F:/SUT-baselines/baseline2/DAVE2v3-depth-108x192-145samples-5000epoch-5372014-7_11-21_33-V0CD5D/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch095-best029.pt"
+    # model_name = "F:/SUT-baselines/baseline2/DAVE2v3-resinc-270x480-145samples-5000epoch-5369767-7_9-23_8-FVB5G2/model-DAVE2v3-270x480-5000epoch-64batch-145Ksamples-epoch110-best049.pt"
+    # model_name = "F:/SUT-baselines/baseline2/DAVE2v3-resdec-67x120-145samples-5000epoch-5369766-7_9-23_8-QRLNLG/model-DAVE2v3-67x120-5000epoch-64batch-145Ksamples-epoch487-best043.pt"
+    transf_id = "fisheye"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-    vqvae = VQVAE(128, 32, 2, 512, 64, .25).eval().to(device)
-    checkpoint = torch.load(vqvae_name, map_location=device)
-    vqvae.load_state_dict(checkpoint["model"])
-    vqvae = None
-    transf_id = "mediumfisheye"
+    vqvae_name = None
+    if vqvae_name is not None:
+        vqvae = VQVAE(128, 32, 2, 512, 64, .25, transf="resdec").eval().to(device)
+        checkpoint = torch.load(vqvae_name, map_location=device)
+        vqvae.load_state_dict(checkpoint["model"])
+        vqvae_id = vqvae_name.split("/")[-1]  + "baseline2"
+    else:
+        vqvae = None
+        vqvae_id = "baseline2"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
-
+    print(f"IMAGE DIMS={img_dims}")
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
                                           beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64156)
     distances, deviations, trajectories = [], [], []
     runs = 5
 
-    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
+    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     #os.mkdir(filepathroot)
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     for i in range(runs):
-        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae)
+        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=None)
         results['distance'] = get_distance_traveled(results['traj'])
         # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
         print(f"\nBASE MODEL USING IMG DIMS {img_dims} RUN {i}:"
@@ -646,7 +632,7 @@ def main(topo_id, hash="000"):
         # "wall_clock_time": time.time() - self.start_time,
         # "sim_time": self.runtime
     }
-    vqvae_id = vqvae_name.split("/")[-1] #.replace(".pth", "")
+
     picklefile = open(f"{filepathroot}/summary-{model_name.split('/')[-1]}_{vqvae_id}.pickle", 'wb')
     pickle.dump(summary, picklefile)
     picklefile.close()
@@ -668,71 +654,8 @@ if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
     hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-
-
-
-    # main("straight", hash=hash)
-    # main("extra_winding", hash=hash)
-    # main("Lturn", hash=hash)
-    # main("Rturn", hash=hash)
-    # main("extrawinding_industrialtrack", hash=hash)
-    # exploratory
-    main("extra_westgrassland", hash=hash)
-    main("extra_westdockleftside", hash=hash)
-    main("extra_westoutskirts", hash=hash)
-    main("extra_westunderpasses", hash=hash)
-    main("extra_westofframp", hash=hash)
-    main("extra_dock", hash=hash)
-    main("extra_utahtunnel", hash=hash)
-    main("extra_utahswitchback", hash=hash)
-    main("extra_utahlong", hash=hash)
-    main("extra_utahturnlane", hash=hash)
-    main("extra_utahexittunnelright", hash=hash)
-    main("extra_small_islandcoast_a_nw", hash=hash)
-    main("extra_junglemountain_road_i", hash=hash)
-    main("extra_junglemountain_road_h", hash=hash)
-    main("extra_junglemountain_road_c", hash=hash)
-    main("extra_junglemountain_alt_f", hash=hash)
-    main("extra_junglemountain_alt_a", hash=hash)
-    main("extra_jungledrift_road_s", hash=hash)
-    main("narrowjungleroad1", hash=hash)
-    main("extra_jungledrift_road_e", hash=hash)
-    main("extra_jungledrift_road_d", hash=hash)
-    main("narrowjungleroad2", hash=hash)
-    main("extra_junglemeander8114", hash=hash)
-    main("Rturn_industrialrc_asphaltd", hash=hash)
-    main("Rturn_industrialrc_asphaltc", hash=hash)
-    main("Rturn_industrialrc_asphaltb", hash=hash)
-    main("extrawinding_industrialrcasphalta", hash=hash)
-    main("Rturn_industrialnarrowservicerd", hash=hash)
-    main("Rturn_industrial8068widewhitepave", hash=hash)
-    main("Rturn_industrial8022whitepave", hash=hash)
-    main("Rturn_industrial7978", hash=hash)
-    main("extrawinding_industrial7978", hash=hash)
-    main("Lturn_narrowservice", hash=hash)
-    main("Rturn_narrowcutthru", hash=hash)
-    main("Rturn_servicecutthru", hash=hash)
-    main("Rturn_bridge", hash=hash)
-    main("Rturn_bigshoulder", hash=hash)
-    main("Lturn_test3", hash=hash)
-    main("extra_windingtrack", hash=hash)
-    main("extra_wideclosedtrack", hash=hash)
-    main("extra_wideclosedtrack2", hash=hash)
-    main("extra_lefthandperimeter", hash=hash)
-    main("extra_driver_trainingvalidation2", hash=hash)
-    main("extra_multilanehighway", hash=hash)
-    main("extra_multilanehighway2", hash=hash)
-    main("extra_windingnarrowtrack", hash=hash)
-    main("Lturncommercialcomplex", hash=hash)
-    main("Rturn_mtnrd", hash=hash)
-    main("Lturnpasswarehouse", hash=hash)
-    main("Rturnrockylinedmtnroad", hash=hash)
-    main("straight", hash=hash)
     main("Rturnserviceroad", hash=hash)
-    main("Lturnyellow", hash=hash)
-    main("countryrd", hash=hash)
-    main("straightcommercialroad", hash=hash)
-    main("Rturnlinedmtnroad", hash=hash)
-    main("Rturncommercialunderpass", hash=hash)
-    main("Rturninnertrack", hash=hash)
-    main("straightwidehighway", hash=hash)
+    main("extra_windingnarrowtrack", hash=hash)
+    main("extra_windingtrack", hash=hash)
+    main("Rturn_bigshouldertopo", hash=hash)
+    main("Rturn_bridgetopo", hash=hash)
