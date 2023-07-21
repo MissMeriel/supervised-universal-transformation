@@ -217,7 +217,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
             elif "fisheye" in detransf:
                 image = detransformations.defisheye(np.array(image))
             elif "depth" in detransf:
-                image = detransformations.deblur(np.array(image))
+                image_shallowdof = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
+                image = detransformations.deblur(np.array(image_shallowdof))
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
@@ -282,11 +283,11 @@ def zero_globals():
     roadright = []
 
 
-def main(topo_id, hash="000"):
+def main(topo_id, hash="000", detransf_id=None):
     global base_filename
     zero_globals()
     model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    detransf_id = "mediumdepth"
+    # detransf_id = "mediumdepth"
     transf_id = None
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
@@ -355,9 +356,11 @@ def main(topo_id, hash="000"):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    main("Rturnserviceroad", hash=hash)
-    main("extra_windingnarrowtrack", hash=hash)
-    main("extra_windingtrack", hash=hash)
-    main("Rturn_bigshouldertopo", hash=hash)
-    main("Rturn_bridgetopo", hash=hash)
+    detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    for detransf_id in detransf_ids:
+        hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
+        main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
+        main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
+        main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
+        main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)

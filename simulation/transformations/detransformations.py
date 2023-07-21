@@ -15,8 +15,23 @@ from predict import Predictor
 predictor = Predictor()
 predictor.setup()
 
+def deblur_pil(img):
+    # convert to RGB nparray
+    img = img.convert('RGB')
+    img = np.array(img)
+    # normalize to [0,1]
+    if np.max(img) > 1.0:
+        img = img / 255
+    img = np.float32(img)
+    # call IFAN model
+    img_deblurred = predictor.predict_image(img)
+    return img_deblurred
+
 def deblur(img):
-    # convert to tensor
+    # normalize to [0,1]
+    if np.max(img) > 1.0:
+        img = img / 255
+    img = np.float32(img)
     # call IFAN model
     img_deblurred = predictor.predict_image(img)
     return img_deblurred
