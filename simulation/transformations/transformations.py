@@ -40,7 +40,8 @@ def fisheye(img:np.ndarray) -> np.ndarray:
     pass
     
 
-def resize(img:np.ndarray, shape=(135,240)) -> np.ndarray:
+# def resize(img:np.ndarray, shape=(135,240)) -> np.ndarray:
+def resize(img: np.ndarray, shape=(192, 108)) -> np.ndarray:
     img_pil = Image.fromarray(img).resize(shape)
     return np.array(img_pil)
 

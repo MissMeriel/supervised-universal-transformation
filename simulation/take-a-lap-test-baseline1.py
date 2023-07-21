@@ -545,7 +545,7 @@ def main(topo_id, hash="000"):
     global base_filename
     zero_globals()
     model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    detransf_id = "mediumfisheye"
+    detransf_id = "resdec2"
     transf_id = None
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
