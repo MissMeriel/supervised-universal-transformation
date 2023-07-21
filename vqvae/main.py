@@ -7,8 +7,9 @@ import torchvision.transforms as T
 
 import argparse
 import utils
-import sys
-sys.path.append("/p/sdbb/DAVE2-Keras")
+import sys, os
+# sys.path.append(f"{os.getcwd()}")
+sys.path.append(f"{os.getcwd()}/../DAVE2")
 from DAVE2pytorch import *
 from models.vqvae import VQVAE
 
@@ -51,7 +52,7 @@ args = parser.parse_args()
 print("args:" + str(args))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+os.makedirs("results", exist_ok=True)
 if args.save:
     print('Results will be saved in ./results/vqvae_' + args.filename + "_" + timestamp + '.pth')
 

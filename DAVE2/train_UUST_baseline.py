@@ -46,11 +46,14 @@ def parse_args():
 
 args = parse_args()
 
-def save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train):
-    with open(f'./{newdir}/model-{iteration}-metainfo.txt', "w") as f:
+def save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train):
+    # with open(f'./{newdir}/model-{iteration}-epoch{epoch}-metainfo.txt', "w") as f:
+    filename = model_name.replace('.pt', '-metainfo.txt')
+    with open(f'./{filename}', "w") as f:
         f.write(f"{model_name=}\n"
                 f"total_samples={dataset.get_total_samples()}\n"
                 f"{args.epochs=}\n"
+                f"{epoch=}\n"
                 f"Warm start {args.pretrained_model=}"
                 f"{args.lr=}\n"
                 f"{args.batch=}\n"
@@ -132,7 +135,8 @@ def main_pytorch_model():
                     print(f"New best model! MSE loss: {running_loss / logfreq}", flush=True)
                     model_name = f"./{newdir}/model-{iteration}-epoch{(epoch + args.start_epochs):03d}-best{best_model_count:03d}.pt"
                     print(f"Saving model to {model_name}", flush=True)
-                    save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
+                    time_to_train=time.time() - start_time
+                    save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
                     torch.save(model, model_name)
                     best_model_count += 1
                     lowest_loss = running_loss / logfreq

@@ -97,17 +97,16 @@ def save_validation(x, x_transf, x_hat, batch=0, index=0, sample=None):
     hw1_img = np.transpose(x[index].detach().cpu().numpy(), (1,2,0))
     recons_img = np.transpose(x_hat[index].detach().cpu().numpy(), (1,2,0))
     hw2_img = np.transpose(x_transf[index].detach().cpu().numpy(), (1,2,0))
-    #TODO: cast to suppress "Clipping input data to the valid range for imshow..." warning
     ax1.imshow((hw1_img * 255 ).astype(np.uint8))
     ax2.imshow((hw2_img * 255 ).astype(np.uint8))
     ax3.imshow((recons_img * 255 ).astype(np.uint8))
-    
+    fig.tight_layout()
     ax1.set_title(f'hw1 pred: {hw1_pred:.5f}')
     ax2.set_title(f'hw2 pred: {hw1_pred:.5f}')
     ax3.set_title(f'recons pred: {recons_pred:.5f}')
 
     img_name = sample['img_name'][index].replace('/', '/\n').replace('\\', '/\n')
-    fig.suptitle(f"{img_name}\n\nHW1-recons Prediction error: {(hw1_pred - recons_pred):.5f}", fontsize=12)
+    fig.suptitle(f"{img_name.replace("None", "\n")}\n\nHW1-recons Prediction error: {(hw1_pred - recons_pred):.5f}", fontsize=12)
     plt.savefig(f"{save_path}/output-batch{batch:04d}-sample{index:04d}.png")
     plt.close(fig)
 

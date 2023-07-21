@@ -150,6 +150,7 @@ class MultiDirectoryDataSequence(data.Dataset):
                 return self.cache[idx]
         img_name = self.all_image_paths[idx]
         image = Image.open(img_name)
+        # Apply ad hoc transformation to base image
         if self.effect is not None:
             if self.effect == "fisheye":
                 image_base = transformations.transforms.fisheye(np.array(image))
@@ -162,9 +163,28 @@ class MultiDirectoryDataSequence(data.Dataset):
         else:
             image_base = image.resize(self.image_size)
         image_base = self.transform(image_base)
-        img_name_transf = str(img_name).replace("base", "transf")
-        image_transf = Image.open(img_name_transf)
-        image_transf = image_transf.resize(self.image_size)
+        # Load "new hardware" image (true transform image) from dataset into image_transf
+        if self.effect is not None:
+            if self.effect == "fisheye":
+                img_name_transf = str(img_name).replace("base", "transf")
+                image_transf = Image.open(img_name_transf)
+                image_transf = image_transf.resize(self.image_size)
+            elif self.effect == "resdec":
+                img_name_transf = str(img_name).replace("base", "lores")
+                image_transf = Image.open(img_name_transf)
+            elif self.effect == "resinc":
+                img_name_transf = str(img_name).replace("base", "hires")
+                image_transf = Image.open(img_name_transf)
+            elif self.effect == "depth":
+                image_orig = Image.open(img_name)
+                img_name_transf = str(img_name).replace("base", "depth")
+                image_depth = Image.open(img_name_depth)
+                image_transf = transformations.transformations.blur_with_depth_image(np.array(image_orig), np.array(img_depth))
+                image_transf = image_transf.resize(self.image_size)
+        else:
+            img_name_transf = str(img_name).replace("base", "transf")
+            image_transf = Image.open(img_name_transf)
+            image_transf = image_transf.resize(self.image_size)
         image_transf = self.transform(image_transf)
         orig_image = torch.clone(image_base)
         pathobj = Path(img_name)
