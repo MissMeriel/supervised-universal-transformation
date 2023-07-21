@@ -36,7 +36,8 @@ from models.vqvae import VQVAE
 import string
 from sim_utils import *
 from transformations import transformations
-from transformations import detransforms
+from transformations import detransformations
+
 # globals
 integral, prev_error = 0.0, 0.0
 overall_throttle_setpoint = 40
@@ -427,7 +428,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
                 image = image.resize((192, 108))
                 # image = cv2.resize(np.array(image), (135,240))
             elif "fisheye" in detransf:
-                image = detransforms.defisheye(np.array(image))
+                image = detransformations.defisheye(np.array(image))
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
@@ -557,7 +558,7 @@ def main(topo_id, hash="000"):
     print(f"IMAGE DIMS={img_dims}")
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
                                           beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64156)
-    distances, deviations, trajectories = [], [], []
+    distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
     filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}-{detransf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
@@ -574,6 +575,7 @@ def main(topo_id, hash="000"):
         distances.append(results['distance'])
         deviations.append(results['deviation']['mean'])
         trajectories.append(results["traj"])
+        runtimes.append(results['runtime'])
     summary = {
         "trajectories": trajectories,
         "dists_from_centerline": deviations,
@@ -588,10 +590,7 @@ def main(topo_id, hash="000"):
         "transf_id": transf_id,
         "vqvae_name": vqvae_name,
         "model_name": model_name,
-        # "obs_shape": self.obs_shape,
-        # "action_space": self.action_space,
-        # "wall_clock_time": time.time() - self.start_time,
-        # "sim_time": self.runtime
+        "runtimes": runtimes
     }
 
     picklefile = open(f"{filepathroot}/summary-{model_name.split('/')[-1]}_{vqvae_id}.pickle", 'wb')

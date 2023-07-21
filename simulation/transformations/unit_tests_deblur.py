@@ -5,7 +5,7 @@ import os
 from PIL import Image
 import cv2
 import transforms
-import detransforms
+import detransformations
 
 
 def deblur_IFAN(imgfile="/p/sdbb/supervised-transformation-dataset-alltransforms3/jungle_rock_island-8000-extra_jungle8000-fisheye.None-run00-6_13-23_45-7ZYMOA/sample-transf-00586.jpg"):
