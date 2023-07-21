@@ -214,10 +214,12 @@ class TransformationDataSequence(data.Dataset):
         if self.transf == "depth":
             image_transf_orig = utils.get_depth_image(img_name)
             image_transf_orig = Image.fromarray((image_transf_orig * 255).astype(np.uint8))
+            image_transf_orig = image_transf_orig.resize(self.image_size)
             # print(f"After utils.get_depth_image {type(image_transf_orig)=}")
         elif self.transf == "fisheye":
             img_transf_path = str(img_name).replace("base", "transf")
             image_transf_orig = Image.open(img_transf_path)
+            image_transf_orig = image_transf_orig.resize(self.image_size)
             # image_transf_orig = image_transf_orig.crop((left, top, right, bottom))
         elif self.transf == "resdec":
             img_transf_path = str(img_name).replace("base", "lores")
@@ -225,9 +227,9 @@ class TransformationDataSequence(data.Dataset):
         elif self.transf == "resinc":
             img_transf_path = str(img_name).replace("base", "hires")
             image_transf_orig = Image.open(img_transf_path)
-        image_transf_orig = image_transf_orig.resize(self.image_size)
         image_transf_orig = np.array(image_transf_orig)
         # print(f"{type(image_transf_orig)=}")
+        # print(f"self.transform is None={self.transform is None}")
         if self.transform is not None:
             image_base_orig = self.transform(image_base_orig)
             image_transf_orig = self.transform(image_transf_orig)

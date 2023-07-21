@@ -120,7 +120,7 @@ def train():
             x_transf = x["image_transf"].float().to(device)
             optimizer.zero_grad()
             embedding_loss, x_hat, perplexity = model(x_transf)
-            # print(f"{x_hat.shape=} {x_base.shape=} {x_hat.shape != x_base.shape}")
+            # print(f"{x_hat.shape=} {x_base.shape=} {x_transf.shape=} {x_hat.shape != x_base.shape}")
             if x_hat_transform is not None:
                 # x_base = x_hat_transform(x_hat)
                 x_hat_transform = T.Resize((x_hat.shape[2], x_hat.shape[3]))

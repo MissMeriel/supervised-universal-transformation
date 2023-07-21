@@ -10,10 +10,11 @@ import sys
 import random 
 from matplotlib import pyplot as plt
 import os
-sys.path.append("/p/sdbb/DAVE2-Keras")
+sys.path.append("../DAVE2")
 from DAVE2pytorch import DAVE2v3
 import torchvision.transforms as transforms
 from sklearn.metrics import mean_squared_error
+from multiprocessing import Pool
 
 # from pynvml import *
 # nvmlInit()
@@ -48,7 +49,7 @@ parser.add_argument("--weights",  type=str, default="/p/sdbb/vqvae/results/vqvae
 parser.add_argument("--topo",  type=str, default=None)
 parser.add_argument("--basemodel",  type=str, default=None)
 parser.add_argument("--transf",  type=str, default="fisheye")
-parser.add_argument("--id",  type=str, default="")
+parser.add_argument("--id",  type=str, default=None)
 
 args = parser.parse_args()
 print(f"{args=}", flush=True)
@@ -86,7 +87,7 @@ def calc_prediction_loss(x, x_hat):
     return prediction_errors
 
 def save_validation(x, x_transf, x_hat, batch=0, index=0, sample=None):
-    # print(f"{x.shape=} \t{x_transf.shape=} \t{x_hat.shape=}", flush=True)
+    print(f"{x_transf.shape=}")
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, layout='constrained', sharey=True)
     x_i = transform(x[index]).to(device)
     # print(f"{x_i.shape=}")
@@ -98,15 +99,17 @@ def save_validation(x, x_transf, x_hat, batch=0, index=0, sample=None):
     hw1_img = np.transpose(x[index].detach().cpu().numpy(), (1,2,0))
     recons_img = np.transpose(x_hat[index].detach().cpu().numpy(), (1,2,0))
     hw2_img = np.transpose(x_transf[index].detach().cpu().numpy(), (1,2,0))
-    ax1.imshow((hw1_img * 255).astype(np.uint8))
-    ax2.imshow((hw2_img * 255).astype(np.uint8))
-    ax3.imshow((recons_img * 255).astype(np.uint8))
+    ax1.imshow((hw1_img * 255).astype(np.uint8), aspect="auto")
+    ax2.imshow((hw2_img * 255).astype(np.uint8), aspect="auto")
+    ax3.imshow((recons_img * 255).astype(np.uint8), aspect="auto")
 
     # https://github.com/matplotlib/matplotlib/issues/1789/
-    # https://stackoverflow.com/questions/44654421/getting-the-same-subplot-size-using-matplotlib-imshow-and-scatter
-    # asp = np.diff(ax2.get_xlim())[0] / np.diff(ax2.get_ylim())[0]
+    # asp = np.diff(ax1.get_xlim())[0] / np.diff(ax1.get_ylim())[0]
     # asp /= np.abs(np.diff(ax1.get_xlim())[0] / np.diff(ax1.get_ylim())[0])
     # ax2.set_aspect(asp)
+    # ax1.set_aspect(asp)
+    # ax2.set_aspect(asp)
+    # ax3.set_aspect(asp)
 
     ax1.set_title(f'hw1 pred: {hw1_pred:.5f}')
     ax2.set_title(f'hw2 pred: {hw1_pred:.5f}')
@@ -127,37 +130,50 @@ results = {
     'predictions': [],
 }
 
-def validate():
+def validate(sample):
     if args.transf == "resdec" or args.transf == "resinc": # (67, 120) (270, 480)
         x_hat_transform = transforms.Resize((108, 192), antialias=True)
     else:
         x_hat_transform = None
-    for i in range(args.n_updates):
-        sample = next(iter(validation_loader))
-        x = sample["image_base"].float().to(device)
-        x_transf = sample["image_transf"].float().to(device)
-        embedding_loss, x_hat, perplexity = model(x_transf)
-        # print(f"1. {x.shape=} \t{x_transf.shape=} \t{x_hat.shape=}", flush=True)
+    
+    x = sample["image_base"].float().to(device)
+    x_transf = sample["image_transf"].float().to(device)
+    embedding_loss, x_hat, perplexity = model(x_transf)
+    if x_hat_transform is not None:
+        # x_base = x_hat_transform(x_hat)
+        x_hat_transform = transforms.Resize((x_hat.shape[2], x_hat.shape[3]), antialias=True)
+        x = x_hat_transform(x)
+    prediction_loss = calc_prediction_loss(x, x_hat)
+    recon_loss = torch.mean((x_hat - x)**2) / x_train_var
+    loss = recon_loss + embedding_loss
+    
+    results["recon_errors"].append(recon_loss.cpu().detach().numpy())
+    results["perplexities"].append(perplexity.cpu().detach().numpy())
+    results["loss_vals"].append(loss.cpu().detach().numpy())
+    results["n_updates"] = i
+    results["predictions"].extend(prediction_loss)
 
-        if x_hat_transform is not None:
-            # x_hat_transform = transforms.Resize((x_hat.shape[2], x_hat.shape[3]), antialias=True)
-            x = x_hat_transform(x)
-            x_transf = x_hat_transform(x_transf)
-            x_hat = x_hat_transform(x_hat)
-        prediction_loss = calc_prediction_loss(x, x_hat)
-        recon_loss = torch.mean((x_hat - x)**2) / x_train_var
-        loss = recon_loss + embedding_loss
-        
-        results["recon_errors"].append(recon_loss.cpu().detach().numpy())
-        results["perplexities"].append(perplexity.cpu().detach().numpy())
-        results["loss_vals"].append(loss.cpu().detach().numpy())
-        results["n_updates"] = i
-        results["predictions"].extend(prediction_loss)
+    if i % args.log_interval == 0:
+        save_validation(x, x_transf, x_hat, batch=i, sample=sample)
 
-        if i % args.log_interval == 0:
-            save_validation(x, x_transf, x_hat, batch=i, sample=sample)
+    # print("prediction loss:", sum(results["predictions"]) / len(results["predictions"]), flush=True)
+    return tuple(predictions)
 
-    print("prediction loss:", sum(results["predictions"]) / len(results["predictions"]), flush=True)
+
+def main():
+    NUM_THREADS = 2
+    with Pool(processes=NUM_THREADS) as pool:
+        results_dict = {}
+        for i in range(args.n_updates):
+            print(f"Update {i}")
+            sample = next(iter(validation_loader))
+            results_dict[(sample)] = pool.apply_async(validate, (sample))
+            # once submitted, all are running
+            for (sample), result in tqdm.tqdm(results_dict.items()):
+                return_value = result.get()  # this will wait until the result is ready
+                # TODO do whatever you want with the return value
+                print(f"{return_value=}")
+
 
 if __name__ == "__main__":
-    validate()
+    main()
