@@ -1,6 +1,11 @@
 import math
 from scipy.spatial.transform import Rotation as R
 import numpy as np
+import statistics, math
+from matplotlib import pyplot as plt
+from beamngpy import BeamNGpy, Scenario, Vehicle, setup_logging, StaticObject, ScenarioObject
+from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
+import random
 
 # positive angle is to the right / clockwise
 def spawn_point(default_scenario, road_id, reverse=False, seg=1):
@@ -788,14 +793,46 @@ def spawn_point(default_scenario, road_id, reverse=False, seg=1):
         if road_id == 'big8':
             return {'pos': (-174.882, 61.4717, 83.5583), 'rot': None, 'rot_quat': (-0.119, -0.001, 0.002, 0.993)}
 
+
+def setup_sensors(vehicle, img_dims, fov=51):
+    resolution = img_dims #(240, 135) #(400,225) #(320, 180) #(1280,960) #(512, 512)
+    pos = (-0.5, 0.38, 1.3)
+    direction = (0, 1.0, 0)
+    front_camera = Camera(pos, direction, fov, resolution, colour=True, depth=True, annotation=True)
+
+    vehicle.attach_sensor('front_cam', front_camera)
+    vehicle.attach_sensor('gforces', GForces())
+    vehicle.attach_sensor('electrics', Electrics())
+    vehicle.attach_sensor('damage', Damage())
+    vehicle.attach_sensor('timer', Timer())
+    return vehicle
+
+
+def add_barriers(scenario, default_scenario):
+    with open(f'posefiles/{default_scenario}_barrier_locations.txt', 'r') as f:
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            line = line.split(' ')
+            pos = line[0].split(',')
+            pos = tuple([float(i) for i in pos])
+            rot_quat = line[1].split(',')
+            rot_quat = tuple([float(j) for j in rot_quat])
+            rot_quat = turn_X_degrees(rot_quat, degrees=-115)
+            ramp = StaticObject(name='barrier{}'.format(i), pos=pos, rot=None, rot_quat=rot_quat, scale=(1, 1, 1),
+                                shape='levels/Industrial/art/shapes/misc/concrete_road_barrier_a.dae')
+            scenario.add_object(ramp)
+
+
 def get_distance_traveled(traj):
     dist = 0.0
     for i in range(len(traj[:-1])):
         dist += math.sqrt(math.pow(traj[i][0] - traj[i+1][0],2) + math.pow(traj[i][1] - traj[i+1][1],2) + math.pow(traj[i][2] - traj[i+1][2],2))
     return dist
 
+
 def distance2D(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+
 
 def turn_X_degrees(rot_quat, degrees=90):
     r = R.from_quat(list(rot_quat))
@@ -1215,6 +1252,22 @@ def dist_from_line(centerline, point):
     dist = lineseg_dists([point[0], point[1]], a, b)
     return dist
 
+# track is approximately 12.50m wide
+# car is approximately 1.85m wide
+def has_car_left_track(vehicle_pos, centerline_interpolated, max_dist=5.0):
+    distance_from_centerline = dist_from_line(centerline_interpolated, vehicle_pos)
+    dist = min(distance_from_centerline)
+    return dist > max_dist, dist
+
+def calc_deviation_from_center(centerline, traj):
+    dists = []
+    for point in traj:
+        dist = dist_from_line(centerline, point)
+        dists.append(min(dist))
+    stddev = statistics.stdev(dists)
+    avg = sum(dists) / len(dists)
+    return {"stddev":stddev, "mean":avg}
+
 
 def diff_damage(damage, damage_prev):
     if damage is None or damage_prev is None:
@@ -1225,3 +1278,87 @@ def diff_damage(damage, damage_prev):
 
 def ms_to_kph(wheelspeed):
     return wheelspeed * 3.6
+
+
+
+
+'''PLOTTING RESULTS'''
+''' takes in 3D array of sequential [x,y] '''
+def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflation_pattern, savefile="trajectories"):
+    x, y = [], []
+    for point in centerline:
+        x.append(point[0])
+        y.append(point[1])
+    plt.plot(x, y, "k-")
+    x, y = [], []
+    for point in roadleft:
+        x.append(point[0])
+        y.append(point[1])
+    plt.plot(x, y, "k-")
+    x, y = [], []
+    for point in roadright:
+        x.append(point[0])
+        y.append(point[1])
+    plt.plot(x, y, "k-", label="Road")
+    for i,t in enumerate(trajectories):
+        x,y = [],[]
+        for point in t:
+            x.append(point[0])
+            y.append(point[1])
+        plt.plot(x, y, label="Run {}".format(i), alpha=0.75)
+
+    x.sort()
+    y.sort()
+    min_x, max_x = x[0], x[-1]
+    min_y, max_y = y[0], y[-1]
+    plt.xlim(min_x - 12, max_x + 12)
+    plt.ylim(min_y - 12, max_y + 12)
+
+    plt.title(f'Trajectories with {model} \n{savefile}')
+    # plt.legend()
+    plt.legend(loc=2, prop={'size': 6})
+    plt.draw()
+    print(f"Saving image to {deflation_pattern}/{savefile}.jpg")
+    plt.savefig(f"{deflation_pattern}/{savefile}.jpg")
+    plt.close()
+    # plt.show()
+    # plt.pause(0.1)
+
+'''PLOT DRIVING ENVIRONMENT'''
+
+def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False):
+    print("Plotting scenario roads...")
+    sp = spawn_point(default_scenario, road_id, reverse=reverse)
+    colors = ['b','g','r','c','m','y','k']
+    symbs = ['-','--','-.',':','.',',','v','o','1',]
+    selectedroads = []
+    for road in roads:
+        road_edges = bng.get_road_edges(road)
+        x_temp = []
+        y_temp = []
+        add = True
+        xy_def = [edge['middle'][:2] for edge in road_edges]
+        dists = [distance(xy_def[i], xy_def[i+1]) for i,p in enumerate(xy_def[:-1])]
+        s = sum(dists)
+        if (s < 200):
+            continue
+        for edge in road_edges:
+            # if edge['middle'][0] < -250 or edge['middle'][0] > 50 or edge['middle'][1] < 0 or edge['middle'][1] > 300:
+            if edge['middle'][1] < -50 or edge['middle'][1] > 250:
+                add = False
+                break
+            if add:
+                x_temp.append(edge['middle'][0])
+                y_temp.append(edge['middle'][1])
+        if add:
+            symb = '{}{}'.format(random.choice(colors), random.choice(symbs))
+            plt.plot(x_temp, y_temp, symb, label=road)
+            selectedroads.append(road)
+    for r in selectedroads: # ["8179", "8248", "8357", "8185", "7770", "7905", "8205", "8353", "8287", "7800", "8341", "7998"]:
+        a = bng.get_road_edges(r)
+        print(r, a[0]['middle'])
+    plt.plot([sp['pos'][0]], [sp['pos'][1]], "bo")
+    plt.legend()
+    plt.show()
+    plt.pause(0.001)
+

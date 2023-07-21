@@ -11,21 +11,21 @@ import skimage
 import sys
 
 sys.path.append("/p/sdbb/vqvae/IFAN")
-# from predict import Predictor
-# predictor = Predictor()
-# predictor.setup()
+from predict import Predictor
+predictor = Predictor()
+predictor.setup()
 
-# def deblur(img):
-#     # convert to tensor
-#     # call IFAN model
-#     img_deblurred = predictor.predict_image(img)
-#     return img_deblurred
-#
-# def deblur_test(imgfile):
-#     # convert to tensor
-#     # call IFAN model
-#     img_deblurred = predictor.predict(imgfile)
-#     return img_deblurred
+def deblur(img):
+    # convert to tensor
+    # call IFAN model
+    img_deblurred = predictor.predict_image(img)
+    return img_deblurred
+
+def deblur_test(imgfile):
+    # convert to tensor
+    # call IFAN model
+    img_deblurred = predictor.predict(imgfile)
+    return img_deblurred
 
 def defisheye(img):
     list_pow = np.asarray([10**(0), 10**(-3), 10**(-6), 10**(-7), 10**(-12)])
@@ -81,3 +81,11 @@ def resize_PIL(img, shape=(135,240)):
     img_pil = Image.fromarray(img)
     img_pil = img_pil.resize(shape)
     return np.array(img_pil)
+
+
+# def fisheye_inv(image):
+#     with WandImage.from_array(image) as img:
+#         img.virtual_pixel = 'transparent'
+#         img.distort('barrel_inverse', (0.0, 0.0, -0.5, 1.5))
+#         img = np.array(img, dtype='uint8')
+#         return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)

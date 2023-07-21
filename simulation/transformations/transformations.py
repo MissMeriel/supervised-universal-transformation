@@ -48,6 +48,17 @@ def resize(img: np.ndarray, shape=(192, 108)) -> np.ndarray:
 
 # for resolution increase on low quality/small images
 def resize_with_inpainting(img:np.ndarray, shape=(135,240)) -> np.ndarray:
-    # convert to PIL
-    # resize using PIL Image.resize()
     pass
+
+# for resolution increase on low quality/small images
+def resize_with_superresolution(img:np.ndarray, shape=(135,240)) -> np.ndarray:
+    pass
+
+
+# def fisheye_wand(image, filename=None):
+#     with WandImage.from_array(image) as img:
+#         img.virtual_pixel = 'transparent'
+#         img.distort('barrel', (0.1, 0.0, -0.05, 1.0))
+#         img.alpha_channel = False
+#         img = np.array(img, dtype='uint8')
+#         return cv2.cvtColor(img, cv2.COLOR_BGRA2RGB)
