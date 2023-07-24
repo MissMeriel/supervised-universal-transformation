@@ -29,13 +29,21 @@ parser.add_argument("--n_embeddings", type=int, default=512)
 parser.add_argument("--beta", type=float, default=.25)
 # parser.add_argument("-save", action="store_true")
 
-transf="resdec"
+transf="resinc"
 args = parser.parse_args()
 print("args:" + str(args))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = VQVAE(args.n_hiddens, args.n_residual_hiddens,
               args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=transf).to(device)
-img_filename = "/p/sdbb/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-lores-01947.jpg"
+if transf == "resinc":
+    img_filename = "/p/sdbb/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-hires-01947.jpg"
+elif transf == "resdec":
+    img_filename = "/p/sdbb/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-lores-01947.jpg"
+elif transf == "fisheye":
+    img_filename = "/p/sdbb/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-transf-01947.jpg"
+elif transf == "depth":
+    img_filename = "/p/sdbb/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-base-01947.jpg"
+    img_depth_filename = "/p/sdbb/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-depth-01947.jpg"
 img = Image.open(img_filename)
 print(f"{img.size=}")
 if transf == "fisheye" or transf == "depth":
@@ -44,7 +52,7 @@ elif transf == "resdec":
     # img = img.resize((120, 67))
     img = img.resize((96, 54))
 elif transf == "resinc":
-    img = img.resize((120, 67))
+    img = img.resize((480, 270))
 transform=transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(

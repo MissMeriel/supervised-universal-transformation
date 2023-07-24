@@ -50,7 +50,8 @@ class Decoder(nn.Module):
             # self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=16, stride=3, padding=0) # Best for input 67 X 120 to output 108 X 192, outputs torch.Size([1, 3, 109, 193])
             self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=8, stride=4, padding=0) # 54 x 96 to 108 x 192, output is torch.Size([1, 3, 108, 196])
         elif transf == "resinc":
-            self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel**3, stride=stride**2, padding=1) # intended resinc 270 x 480, output recon data shape: torch.Size([1, 3, 274, 490])
+            # self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel**3, stride=stride**2, padding=1) # intended resinc 270 x 480, output recon data shape: torch.Size([1, 3, 274, 490])
+            self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel//2, stride=stride, padding=1) # 480 X 270 to 108 x 192, output is torch.Size([1, 3, 266, 478])
         else:
             self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel, stride=stride, padding=1) # original one
 
