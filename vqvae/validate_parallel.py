@@ -15,6 +15,7 @@ from DAVE2pytorch import DAVE2v3
 import torchvision.transforms as transforms
 from sklearn.metrics import mean_squared_error
 from multiprocessing import Pool
+import tqdm
 
 # from pynvml import *
 # nvmlInit()
@@ -55,7 +56,7 @@ args = parser.parse_args()
 print(f"{args=}", flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-save_path = args.weights.replace(".pth", "_" + args.id + "_" + randstr)
+save_path = "TESTPARALLEL222" + args.weights.replace(".pth", "_" + args.id + "_" + randstr)
 os.makedirs(save_path, exist_ok=True)
 print('Results will be saved in ' + save_path)
 
@@ -86,7 +87,7 @@ def calc_prediction_loss(x, x_hat):
         prediction_errors[i] = mean_squared_error([hw1_pred], [recons_pred])
     return prediction_errors
 
-def save_validation(x, x_transf, x_hat, batch=0, index=0, sample=None):
+def save_validation(x, x_transf, x_hat, batch=0, index=0): #, sample=None):
     print(f"{x_transf.shape=}")
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, layout='constrained', sharey=True)
     x_i = transform(x[index]).to(device)
@@ -99,9 +100,9 @@ def save_validation(x, x_transf, x_hat, batch=0, index=0, sample=None):
     hw1_img = np.transpose(x[index].detach().cpu().numpy(), (1,2,0))
     recons_img = np.transpose(x_hat[index].detach().cpu().numpy(), (1,2,0))
     hw2_img = np.transpose(x_transf[index].detach().cpu().numpy(), (1,2,0))
-    ax1.imshow((hw1_img * 255).astype(np.uint8), aspect="auto")
-    ax2.imshow((hw2_img * 255).astype(np.uint8), aspect="auto")
-    ax3.imshow((recons_img * 255).astype(np.uint8), aspect="auto")
+    ax1.imshow((hw1_img * 255).astype(np.uint8))
+    ax2.imshow((hw2_img * 255).astype(np.uint8))
+    ax3.imshow((recons_img * 255).astype(np.uint8))
 
     # https://github.com/matplotlib/matplotlib/issues/1789/
     # asp = np.diff(ax1.get_xlim())[0] / np.diff(ax1.get_ylim())[0]
@@ -115,8 +116,8 @@ def save_validation(x, x_transf, x_hat, batch=0, index=0, sample=None):
     ax2.set_title(f'hw2 pred: {hw1_pred:.5f}')
     ax3.set_title(f'recons pred: {recons_pred:.5f}')
 
-    img_name = sample['img_name'][index].replace('/', '/\n').replace('\\', '/\n')
-    maintitle = img_name.replace("None", "\n")
+    # img_name = sample['img_name'][index].replace('/', '/\n').replace('\\', '/\n')
+    maintitle = "test" #img_name.replace("None", "\n")
     fig.suptitle(f"{maintitle}\n\nHW1-recons Prediction error: {(hw1_pred - recons_pred):.5f}", fontsize=12)
     plt.savefig(f"{save_path}/output-batch{batch:04d}-sample{index:04d}.png")
     plt.close(fig)
@@ -130,7 +131,7 @@ results = {
     'predictions': [],
 }
 
-def validate(sample):
+def validateOLD(sample):
     if args.transf == "resdec" or args.transf == "resinc": # (67, 120) (270, 480)
         x_hat_transform = transforms.Resize((108, 192), antialias=True)
     else:
@@ -156,8 +157,40 @@ def validate(sample):
     if i % args.log_interval == 0:
         save_validation(x, x_transf, x_hat, batch=i, sample=sample)
 
-    # print("prediction loss:", sum(results["predictions"]) / len(results["predictions"]), flush=True)
-    return tuple(predictions)
+    print("prediction loss:", sum(results["predictions"]) / len(results["predictions"]), flush=True)
+
+    return tuple(results["predictions"])
+
+
+def validate(image_base, image_transf, i):
+    if args.transf == "resdec" or args.transf == "resinc": # (67, 120) (270, 480)
+        x_hat_transform = transforms.Resize((108, 192), antialias=True)
+    else:
+        x_hat_transform = None
+    
+    x = image_base.float().to(device)
+    x_transf = image_transf.float().to(device)
+    embedding_loss, x_hat, perplexity = model(x_transf)
+    if x_hat_transform is not None:
+        # x_base = x_hat_transform(x_hat)
+        x_hat_transform = transforms.Resize((x_hat.shape[2], x_hat.shape[3]), antialias=True)
+        x = x_hat_transform(x)
+    prediction_loss = calc_prediction_loss(x, x_hat)
+    recon_loss = torch.mean((x_hat - x)**2) / x_train_var
+    loss = recon_loss + embedding_loss
+    
+    results["recon_errors"].append(recon_loss.cpu().detach().numpy())
+    results["perplexities"].append(perplexity.cpu().detach().numpy())
+    results["loss_vals"].append(loss.cpu().detach().numpy())
+    # results["n_updates"] = i
+    results["predictions"].extend(prediction_loss)
+
+    if i % args.log_interval == 0:
+        save_validation(x, x_transf, x_hat, batch=i) #, sample=sample)
+
+    print("prediction loss:", sum(results["predictions"]) / len(results["predictions"]), flush=True)
+
+    return tuple(results["predictions"])
 
 
 def main():
@@ -167,13 +200,18 @@ def main():
         for i in range(args.n_updates):
             print(f"Update {i}")
             sample = next(iter(validation_loader))
-            results_dict[(sample)] = pool.apply_async(validate, (sample))
+            # print(f"{sample.keys()=}")
+            # print(f"{sample['img_name']=}")
+            # print(f"{type(sample['img_name'])=}")
+            # results_dict[tuple(sample["img_name"])] = pool.apply_async(validate, (sample))
+            result = pool.apply_async(validate, (sample["image_base"], sample['image_transf'], i))
             # once submitted, all are running
-            for (sample), result in tqdm.tqdm(results_dict.items()):
-                return_value = result.get()  # this will wait until the result is ready
-                # TODO do whatever you want with the return value
-                print(f"{return_value=}")
+            # for tuple(sample["img_name"]), result in tqdm.tqdm(results_dict.items()):
+            return_value = result.get()  # this will wait until the result is ready
+            # TODO do whatever you want with the return value
+            print(f"{return_value=}")
 
 
 if __name__ == "__main__":
+    torch.multiprocessing.set_start_method('spawn')# good solution !!!!
     main()
