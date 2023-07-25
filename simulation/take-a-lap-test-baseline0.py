@@ -209,16 +209,9 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         if transf is not None:
             if "depth" in transf:
                 image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-
-        if detransf is not None:
-            if "res" in detransf:
+            elif "res" in detransf:
                 image = image.resize((192, 108))
-                # image = cv2.resize(np.array(image), (135,240))
-            elif "fisheye" in detransf:
-                image = detransformations.defisheye(np.array(image))
-            elif "depth" in detransf:
-                image_shallowdof = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-                image = detransformations.deblur(np.array(image_shallowdof))
+
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
@@ -283,22 +276,21 @@ def zero_globals():
     roadright = []
 
 
-def main(topo_id, hash="000", detransf_id=None):
+def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     global base_filename
     zero_globals()
     model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    # detransf_id = "mediumdepth"
-    transf_id = None
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
     vqvae_name = None
     vqvae = None
-    vqvae_id = "baseline1"
+    vqvae_id = "baseline0"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
-    img_dims, fov, transf = get_transf(detransf_id)
-    print(f"IMAGE DIMS={img_dims}")
+    img_dims, fov, transf = get_transf(transf_id)
+    print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
+
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE2', port=64556)
+                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.research', port=64156)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
@@ -337,7 +329,7 @@ def main(topo_id, hash="000", detransf_id=None):
     picklefile = open(f"{filepathroot}/summary-{model_name.split('/')[-1]}_{vqvae_id}.pickle", 'wb')
     pickle.dump(summary, picklefile)
     picklefile.close()
-    print(f"{topo_id} OUT OF {runs} RUNS:"
+    print(f"{topo_id} {transf_id} OUT OF {runs} RUNS:"
           f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
@@ -345,7 +337,7 @@ def main(topo_id, hash="000", detransf_id=None):
           f"\n\t{deviations:}"
           f"\n\t{vqvae_name=}"
           f"\n\t{model_name=}")
-    id = f"basemodelalone-{vqvae_id}"
+    id = f"DAVE2V3-{vqvae_id}"
     try:
         plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3 ", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
     except:
@@ -364,22 +356,21 @@ def summarize_results(all_results):
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
           )
 
-
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
     all_results = []
-    for detransf_id in detransf_ids:
+    for transf_id in transf_ids:
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        results = main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
+        results = main("Rturnserviceroad", hash=hash, transf_id=transf_id)
         all_results.append(results)
-        results = main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
+        results = main("extra_windingnarrowtrack", hash=hash, transf_id=transf_id)
         all_results.append(results)
-        results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
+        results = main("extra_windingtrack", hash=hash, transf_id=transf_id)
         all_results.append(results)
-        results = main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
+        results = main("Rturn_bigshouldertopo", hash=hash, transf_id=transf_id)
         all_results.append(results)
-        results = main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)
+        results = main("Rturn_bridgetopo", hash=hash, transf_id=transf_id)
         all_results.append(results)
         summarize_results(all_results)

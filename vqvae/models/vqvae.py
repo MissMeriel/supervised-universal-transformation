@@ -2,6 +2,10 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import sys, os
+
+sys.path.append(os.getcwd()+"/..")
+sys.path.append(os.getcwd()+"/../..")
 from models.encoder import Encoder
 from models.quantizer import VectorQuantizer
 from models.decoder import Decoder

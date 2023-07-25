@@ -206,30 +206,29 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         image = sensors['front_cam']['colour'].convert('RGB')
         image_seg = sensors['front_cam']['annotation'].convert('RGB')
         image_depth = sensors['front_cam']['depth'].convert('RGB')
-        if transf is not None:
-            if "depth" in transf:
-                image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
 
-        if detransf is not None:
-            if "res" in detransf:
-                image = image.resize((192, 108))
-                # image = cv2.resize(np.array(image), (135,240))
-            elif "fisheye" in detransf:
-                image = detransformations.defisheye(np.array(image))
-            elif "depth" in detransf:
-                image_shallowdof = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-                image = detransformations.deblur(np.array(image_shallowdof))
-        cv2.imshow('car view', np.array(image)[:, :, ::-1])
+        try:
+            processed_img = model.process_image(image).to(device)
+        except:
+            processed_img = transform(np.asarray(image))[None]
+        if vqvae is not None:
+            embedding_loss, processed_img, perplexity = vqvae(processed_img)
+
+        prediction = model(processed_img)
+        steering = float(prediction.item())
+        vqvae_viz = processed_img.cpu().detach()[0]
+        vqvae_viz = vqvae_viz.permute(1,2,0)
+        cv2.imshow('car view', vqvae_viz.numpy()[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
         dt = (sensors['timer']['time'] - start_time) - runtime
-        try:
-            processed_img = model.process_image(image).to(device)
-        except Exception as e:
-            processed_img = transform(np.asarray(image))[None]
-        prediction = model(processed_img.type(torch.float32))
-        steering = float(prediction.item())
+        # try:
+        #     processed_img = model.process_image(image).to(device)
+        # except Exception as e:
+        #     processed_img = transform(np.asarray(image))[None]
+        # prediction = model(processed_img.type(torch.float32))
+        # steering = float(prediction.item())
         runtime = sensors['timer']['time'] - start_time
         total_predictions += 1
         if abs(steering) > 0.15:
@@ -282,27 +281,34 @@ def zero_globals():
     roadleft = []
     roadright = []
 
-
+from vqvae.models.vqvae import VQVAE
 def main(topo_id, hash="000", detransf_id=None):
     global base_filename
     zero_globals()
+    # params
     model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
     # detransf_id = "mediumdepth"
-    transf_id = None
+    transf_id = "resdec"
+    vqvae_name = "F:/SUT-baselines/baseline4/results/vqvae_RQ1v2_resdec_samples10000_epochs500_5444459_fri_jul_21_19_05_57_2023.pth"
+
+    transf_id = "mediumfisheye"
+    vqvae_name = "F:/SUT-baselines/baseline4/results/vqvae_RQ1v2_fisheye_samples10000_epochs500_5444459_sat_jul_22_03_21_07_2023.pth"
+
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-    vqvae_name = None
-    vqvae = None
-    vqvae_id = "baseline1"
+    vqvae = VQVAE(128, 32, 2, 512, 64, .25, transf=transf_id).eval().to(device)
+    checkpoint = torch.load(vqvae_name, map_location=device)
+    vqvae.load_state_dict(checkpoint["model"])
+    vqvae_id = "baseline4"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
-    img_dims, fov, transf = get_transf(detransf_id)
-    print(f"IMAGE DIMS={img_dims}")
+    img_dims, fov, transf = get_transf(transf_id)
+    print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE2', port=64556)
+                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64956)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
-    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}-{detransf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
+    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
@@ -368,18 +374,19 @@ def summarize_results(all_results):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    # detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
     all_results = []
-    for detransf_id in detransf_ids:
-        hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        results = main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        summarize_results(all_results)
+    detransf_id = None
+    # for detransf_id in detransf_ids:
+    hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    results = main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
+    all_results.append(results)
+    results = main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
+    all_results.append(results)
+    results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
+    all_results.append(results)
+    results = main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
+    all_results.append(results)
+    results = main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)
+    all_results.append(results)
+    summarize_results(all_results)
