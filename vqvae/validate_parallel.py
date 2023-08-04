@@ -209,7 +209,7 @@ def main():
             # for tuple(sample["img_name"]), result in tqdm.tqdm(results_dict.items()):
             return_value = result.get()  # this will wait until the result is ready
             # TODO do whatever you want with the return value
-            print(f"{return_value=}")
+            # print(f"{return_value=}")
 
 
 if __name__ == "__main__":

@@ -44,6 +44,8 @@ def resize(img:np.ndarray, shape=(135,240)) -> np.ndarray:
     img_pil = Image.fromarray(img).resize(shape)
     return np.array(img_pil)
 
+def resize_pil(img:Image, shape=(135,240)) -> np.ndarray:
+    return img.resize(shape)
 
 # for resolution increase on low quality/small images
 def resize_with_inpainting(img:np.ndarray, shape=(135,240)) -> np.ndarray:

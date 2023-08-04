@@ -19,7 +19,7 @@ import random
 from torchvision.transforms import Compose, ToTensor, PILToTensor, functional as transforms
 from io import BytesIO
 import skimage
-sys.path.append("../transformations")
+sys.path.append(f"{os.getcwd()}/../transformations")
 import transformations
 
 def stripleftchars(s):
@@ -153,13 +153,13 @@ class MultiDirectoryDataSequence(data.Dataset):
         # Apply ad hoc transformation to base image
         if self.effect is not None:
             if self.effect == "fisheye":
-                image_base = transformations.transforms.fisheye(np.array(image))
+                image_base = transformations.fisheye(np.array(image))
             elif self.effect == "resdec":
-                image_base = transformations.transforms.resize_pil(image, (67, 120))
+                image_base = transformations.resize_pil(image, (54, 96)) # 67, 120
             elif self.effect == "resinc":
-                image_base = transformations.transforms.resize_pil(image, (270, 480))
+                image_base = transformations.resize_pil(image, (270, 480))
             elif self.effect == "depth":
-                image_base = transformations.transforms.blur_computational(np.array(image))
+                image_base = transformations.blur_computational(np.array(image))
         else:
             image_base = image.resize(self.image_size)
         image_base = self.transform(image_base)
@@ -178,8 +178,8 @@ class MultiDirectoryDataSequence(data.Dataset):
             elif self.effect == "depth":
                 image_orig = Image.open(img_name)
                 img_name_transf = str(img_name).replace("base", "depth")
-                image_depth = Image.open(img_name_depth)
-                image_transf = transformations.transformations.blur_with_depth_image(np.array(image_orig), np.array(img_depth))
+                image_depth = Image.open(img_name_transf)
+                image_transf = transformations.blur_with_depth_image(np.array(image_orig), np.array(image_depth))
                 image_transf = image_transf.resize(self.image_size)
         else:
             img_name_transf = str(img_name).replace("base", "transf")
