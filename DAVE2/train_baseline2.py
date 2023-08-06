@@ -11,8 +11,7 @@ from PIL import Image
 import PIL
 import matplotlib.pyplot as plt
 
-from DAVE2pytorch import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch
-from Baseline3DatasetGenerator import MultiDirectoryDataSequence
+from Baseline2DatasetGenerator import MultiDirectoryDataSequence
 
 import time
 import random, string, shutil
@@ -72,13 +71,14 @@ def main_pytorch_model():
     input_shape = tuple([int(d) for d in args.img_dims.split(" ")]) #(81, 144) # (108, 192) # (135, 240)
     print(f"{input_shape=}")
     print(f"{device=}", flush=True)
+    print(f"{args.effect=}", flush=True)
     if args.effect == "resdec":
-        from DAVE2resdec import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch 
-        model =  DAVE2v3(input_shape=input_shape)
-    else:
-        from DAVE2pytorch import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch
+        from DAVE2resdec import DAVE2v3
         model = DAVE2v3(input_shape=input_shape)
-    if args.effect != "resdec" and args.pretrained_model is not None:
+    else:
+        from DAVE2pytorch import DAVE2v3
+        model = DAVE2v3(input_shape=input_shape)
+    if args.effect != "resdec" and args.effect != "resinc" and args.pretrained_model is not None:
         model = model.load(args.pretrained_model, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
     robustification = True
@@ -87,8 +87,6 @@ def main_pytorch_model():
     dataset = MultiDirectoryDataSequence(args.dataset, args.RRL_dir, image_size=(model.input_shape[::-1]), transform=Compose([ToTensor()]),\
                                         robustification=robustification, noise_level=noise_level, sample_id="STEERING_INPUT",
                                         effect=args.effect) #, Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]))
-
-
 
     print("Moments of distribution:", dataset.get_outputs_distribution(), flush=True)
     print("Total samples:", dataset.get_total_samples(), flush=True)
@@ -101,11 +99,11 @@ def main_pytorch_model():
     timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
     
     randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    newdir = f"./BASELINE3-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
+    newdir = f"./{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
     if not os.path.exists(newdir):
         os.mkdir(newdir,  mode=0o777)
         shutil.copyfile(__file__, f"{newdir}/{__file__.split('/')[-1]}", follow_symlinks=False)
-        shutil.copyfile("UUSTDatasetGenerator.py", f"{newdir}/UUSTDatasetGenerator.py", follow_symlinks=False)
+        shutil.copyfile("Baseline2DatasetGenerator.py", f"{newdir}/Baseline2DatasetGenerator.py", follow_symlinks=False)
     iteration = f'{model._get_name()}-{input_shape[0]}x{input_shape[1]}-{args.epochs}epoch-{args.batch}batch-{int(dataset.get_total_samples()/1000)}Ksamples'
     
     print(f"{iteration=}", flush=True)
@@ -118,7 +116,7 @@ def main_pytorch_model():
     for epoch in range(NB_EPOCH):
         running_loss = 0.0
         for i, hashmap in enumerate(trainloader, 0):
-            x = hashmap['image_transf'].float().to(device)
+            x = hashmap['image_base'].float().to(device)
             y = hashmap['steering_input'].float().to(device)
             x = Variable(x, requires_grad=True)
             y = Variable(y, requires_grad=False)

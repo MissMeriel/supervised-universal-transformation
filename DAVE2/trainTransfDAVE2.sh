@@ -5,7 +5,8 @@
 transfs=(fisheye depth resdec resinc)
 for transf in ${transfs[@]}; do 
     if [ $transf == "resdec" ]; then
-        img_size="96 54"
+        img_size="81 144"
+        # img_size="54 96"
     elif [ $transf == "resinc" ]; then
         img_size="480 270"
     else

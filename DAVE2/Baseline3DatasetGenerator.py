@@ -130,21 +130,36 @@ class MultiDirectoryDataSequence(data.Dataset):
         image_base = image.resize(self.image_size)
         image_base = self.transform(image_base)
         # Load "new hardware" image (true transform image) from dataset into image_transf
-        if self.effect == "fisheye":
-            img_transf_name = str(Path(img_name)).replace("base", "transf")
-            image_transf = Image.open(img_transf_name)
-        elif self.effect == "resdec":
-            img_transf_name = str(Path(img_name)).replace("base", "lores")
-            image_transf = Image.open(img_transf_name)
-        elif self.effect == "resinc":
-            img_transf_name = str(Path(img_name)).replace("base", "hires")
-            image_transf = Image.open(img_transf_name)
-        elif self.effect == "depth":
-            img_transf_name = str(Path(img_name)).replace("base", "depth")
-            image_depth = Image.open(img_transf_name)
-            image_transf = transformations.blur_with_depth_image(np.array(image_base), np.array(image_depth))
+        # print(f"{self.effect=}")
+        if self.effect is not None:
+            if self.effect == "fisheye":
+                img_name_transf = str(img_name).replace("base", "transf")
+                image_transf = Image.open(img_name_transf)
+                image_transf = image_transf.resize(self.image_size)
+            elif self.effect == "resdec":
+                img_name_transf = str(img_name).replace("base", "lores")
+                image_transf = Image.open(img_name_transf)
+            elif self.effect == "resinc":
+                img_name_transf = str(img_name).replace("base", "hires")
+                image_transf = Image.open(img_name_transf)
+            elif self.effect == "depth":
+                # print(f"Inside self.effect == depth")
+                image_orig = Image.open(img_name)
+                img_name_transf = str(img_name).replace("base", "depth")
+                # print(f"{img_name_transf=}")
+                # print(f"{os.path.isfile(img_name_transf)=}")
+                image_depth = Image.open(img_name_transf)
+                # print(f"{type(image_depth)=} image_depth is None {image_depth is None}")
+                image_transf = transformations.blur_with_depth_image(np.array(image_orig), np.array(image_depth))
+                # print(f"after transformation {type(image_transf)=} image_transf is None {image_transf is None}")
+                # image_transf = Image.fromarray(image_transf).resize(self.image_size)
+                image_transf = Image.fromarray((image_transf * 255).astype(np.uint8)).resize(self.image_size)
+                # print(f"after resize {type(image_transf)=} image_transf is None {image_transf is None}")
+        else:
+            img_name_transf = str(img_name).replace("base", "transf")
+            image_transf = Image.open(img_name_transf)
+            image_transf = image_transf.resize(self.image_size)
         image_transf = self.transform(image_transf)
-
         orig_image = torch.clone(image_base)
         pathobj = Path(img_name)
         df = self.dfs_hashmap[f"{pathobj.parent}"]

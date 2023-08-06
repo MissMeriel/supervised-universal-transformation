@@ -22,6 +22,7 @@ import skimage
 sys.path.append(f"{os.getcwd()}/../transformations")
 import transformations
 
+
 def stripleftchars(s):
     for i in range(len(s)):
         if s[i].isnumeric():
@@ -120,21 +121,21 @@ class MultiDirectoryDataSequence(data.Dataset):
     def __len__(self):
         return len(self.all_image_paths)
     
-    def robustify(self, image_base, image_transf, y_steer):
+    def robustify(self, image_base, y_steer):
         if random.random() > 0.75:
             image_base = torch.flip(image_base, (2,))
-            image_transf = torch.flip(image_transf, (2,))
+            # image_transf = torch.flip(image_transf, (2,))
             y_steer = -y_steer
         if random.random() > 0.75:
             gauss = kornia.filters.GaussianBlur2d((3, 3), (1.5, 1.5))
             image_base = gauss(image_base[None])[0]
         if random.random() > 0.75:
             gauss = kornia.filters.GaussianBlur2d((3, 3), (1.5, 1.5))
-            image_transf = gauss(image_transf[None])[0]
+            # image_transf = gauss(image_transf[None])[0]
         if self.noise_level is not None:
             image_base = torch.clamp(image_base + (torch.randn(*image_base.shape) / self.noise_level), 0, 1)
-            image_transf = torch.clamp(image_transf + (torch.randn(*image_transf.shape) / self.noise_level), 0, 1)
-        return image_base, image_transf, y_steer
+            # image_transf = torch.clamp(image_transf + (torch.randn(*image_transf.shape) / self.noise_level), 0, 1)
+        return image_base, y_steer
 
 
     def __getitem__(self, idx):
@@ -154,7 +155,10 @@ class MultiDirectoryDataSequence(data.Dataset):
         # print(f"{self.effect=}")
         if self.effect is not None:
             if self.effect == "fisheye":
+                # print(f"before fisheye transform {type(image)=}")
                 image_base = transformations.fisheye(np.array(image))
+                # print(f"after fisheye transform {type(image_base)=}")
+                # image_base = Image.fromarray(image_base * 255)
             elif self.effect == "resdec":
                 image_base = transformations.resize_pil(image, (54, 96)) # 67, 120
             elif self.effect == "resinc":
@@ -195,7 +199,7 @@ class MultiDirectoryDataSequence(data.Dataset):
         #     img_name_transf = str(img_name).replace("base", "transf")
         #     image_transf = Image.open(img_name_transf)
         #     image_transf = image_transf.resize(self.image_size)
-        image_transf = self.transform(image_transf)
+        # image_transf = self.transform(image_transf)
         orig_image = torch.clone(image_base)
         pathobj = Path(img_name)
         df = self.dfs_hashmap[f"{pathobj.parent}"]
@@ -206,12 +210,10 @@ class MultiDirectoryDataSequence(data.Dataset):
         y_steer = copy.deepcopy(orig_y_steer)
         
         if self.robustification:
-            image_base_rb, image_transf_rb, y_steer_rb = self.robustify(copy.deepcopy(image_base), copy.deepcopy(image_transf), y_steer)
+            image_base_rb, y_steer_rb = self.robustify(copy.deepcopy(image_base), y_steer)
 
-        # sample =  {"image_base": image_base, "image_transf": image_transf, "steering_input": y_steer, "throttle_input": y_throttle,  "img_name": img_name, "all": torch.FloatTensor([y_steer, y_throttle])}
-        # orig_sample =  {"image_base": orig_image, "image_transf": image_transf, "steering_input": y_steer, "throttle_input": y_throttle,  "img_name": img_name, "all": torch.FloatTensor([y_steer, y_throttle])}
-        sample =  {"image_base": image_base_rb, "image_transf": image_transf_rb, "steering_input": y_steer_rb, "throttle_input": y_throttle } #,  "img_name": img_name, "all": torch.FloatTensor([y_steer, y_throttle])}
-        orig_sample =  {"image_base": image_base, "image_transf": image_transf, "steering_input": orig_y_steer, "throttle_input": y_throttle} #,  "img_name": img_name, "all": torch.FloatTensor([y_steer, y_throttle])}
+        sample =  {"image_base": image_base_rb,  "steering_input": y_steer_rb, "throttle_input": y_throttle } #,  "img_name": img_name, "all": torch.FloatTensor([y_steer, y_throttle])}
+        orig_sample =  {"image_base": image_base, "steering_input": orig_y_steer, "throttle_input": y_throttle} #,  "img_name": img_name, "all": torch.FloatTensor([y_steer, y_throttle])}
         
         if sys.getsizeof(self.cache) < 8 * 1.0e10:
             self.cache[idx] = orig_sample
