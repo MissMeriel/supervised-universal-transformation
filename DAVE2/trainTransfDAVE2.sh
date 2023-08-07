@@ -1,5 +1,4 @@
 #!/usr/bin/bash
-# . /p/sdbb/DAVE2-Keras/.venv-dave2/bin/activate
 . ../.venv-sut/bin/activate
 # SLURM_JOB_ID="000"
 transfs=(fisheye depth resdec resinc)
@@ -8,7 +7,7 @@ for transf in ${transfs[@]}; do
         img_size="81 144"
         # img_size="54 96"
     elif [ $transf == "resinc" ]; then
-        img_size="480 270"
+        img_size="270 480"
     else
         img_size="108 192"
     fi

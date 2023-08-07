@@ -144,9 +144,9 @@ class MultiDirectoryDataSequence(data.Dataset):
                 sample = self.cache[idx]
                 y_steer = sample["steering_input"]
                 image_base = copy.deepcopy(sample["image_base"])
-                image_transf = copy.deepcopy(sample["image_transf"])
-                image_base_rb, image_transf_rb, y_steer_rb = self.robustify(image_base, image_transf, y_steer)
-                return {"image_base": image_base_rb, "image_transf": image_transf_rb, "steering_input": y_steer_rb, "throttle_input": sample["throttle_input"]} #,  "img_name": sample["img_name"], "all": torch.FloatTensor([y_steer, sample["throttle_input"]])}
+                # image_transf = copy.deepcopy(sample["image_transf"])
+                image_base_rb, y_steer_rb = self.robustify(image_base, y_steer)
+                return {"image_base": image_base_rb, "steering_input": y_steer_rb, "throttle_input": sample["throttle_input"]} #,  "img_name": sample["img_name"], "all": torch.FloatTensor([y_steer, sample["throttle_input"]])}
             else:
                 return self.cache[idx]
         img_name = self.all_image_paths[idx]
