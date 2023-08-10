@@ -88,9 +88,9 @@ class TransformationDataSequence(data.Dataset):
         all_image_paths = []
         self.dfs_hashmap = {}
         self.dirs = []
-        # marker = "ep"
+
         for p in Path(root).iterdir():
-            # if p.is_dir() and marker in str(p):
+
             if p.is_dir() and ((key is None) or (key is not None and key in str(p))):
                 self.dirs.append("{}/{}".format(p.parent, p.stem))
                 image_paths = []
@@ -102,7 +102,7 @@ class TransformationDataSequence(data.Dataset):
                     except FileNotFoundError as e:
                         print(e, "\nNo data.txt or data.csv in directory")
                         continue
-                # TODO: FIX FOR DS SIZE LIMIT
+
                 for pp in Path(p).iterdir():
                     # if pp.suffix.lower() in [".jpg", ".png", ".jpeg", ".bmp"] and "transf" not in pp.name:
                     if pp.suffix.lower() in [".jpg", ".png", ".jpeg", ".bmp"] and "sample-base" in pp.name:

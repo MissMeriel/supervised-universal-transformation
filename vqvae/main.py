@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import torchvision
+print(f"{torchvision.__version__=}")
 import torchvision.transforms as T
 
 import argparse
@@ -52,6 +54,8 @@ args = parser.parse_args()
 print("args:" + str(args))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device {device}")
+
 os.makedirs("results", exist_ok=True)
 if args.save:
     print('Results will be saved in ./results/vqvae_' + args.filename + "_" + timestamp + '.pth')

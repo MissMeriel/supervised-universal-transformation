@@ -5,7 +5,6 @@
 #SBATCH --gres=gpu:1
 
 . ../.venv-sut/bin/activate
-pip install blurgenerator discorpy
 epochs=500
 transfs=(fisheye)
 max_dataset_size="all"

@@ -10,7 +10,7 @@ import sys
 import random 
 from matplotlib import pyplot as plt
 import os
-sys.path.append("/p/sdbb/DAVE2-Keras")
+sys.path.append("../DAVE2")
 from DAVE2pytorch import DAVE2v3
 import torchvision.transforms as transforms
 from sklearn.metrics import mean_squared_error

@@ -14,8 +14,8 @@ import transformations
 
 def load_sut():
     from datasets.DatasetGenerator import TransformationDataSequence
-    train_data_file_path = "/p/sdbb/supervised-transformation-dataset-all/"
-    valid_data_file_path = "/p/sdbb/supervised-transformation-validation/"
+    train_data_file_path = "~/supervised-transformation-dataset-all/"
+    valid_data_file_path = "~/supervised-transformation-validation/"
     image_size = (192, 108, 3) # (240, 132, 3)
     print(f"Input image size: {image_size}")
     training_dataset = TransformationDataSequence(train_data_file_path, image_size=image_size, 
@@ -33,12 +33,12 @@ def load_uust(topo=None, max_dataset_size=None, transf="fisheye"):
     valkey = None
 
     if topo is None or topo == "general":
-        train_data_file_path = "/p/sdbb/supervised-transformation-dataset-alltransforms3FULL-T/"
-        valid_data_file_path = "/p/sdbb/supervised-transformation-dataset-alltransforms31FULL-V/"
+        train_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms3FULL-T/"
+        valid_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms31FULL-V/"
 
     elif topo is "baseline3":
-        train_data_file_path = "/p/sdbb/supervised-transformation-dataset-alltransforms31FULL-V/"
-        valid_data_file_path = "/p/sdbb/supervised-transformation-dataset-alltransforms31FULL-V/"
+        train_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms31FULL-V/"
+        valid_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms31FULL-V/"
 
     if transf == "resdec":
         image_size = (96, 54, 3) # (120, 67, 3)

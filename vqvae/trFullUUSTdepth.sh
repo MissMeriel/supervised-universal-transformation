@@ -5,9 +5,8 @@
 #SBATCH --gres=gpu:1
 
 . ../.venv-sut/bin/activate
-pip install blurgenerator discorpy
 epochs=500
-transfs=(fisheye)
+transfs=(depth)
 max_dataset_size="all"
 basemodel="./weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
 for transf in ${transfs[@]}; do 

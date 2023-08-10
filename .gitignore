@@ -5,6 +5,7 @@ transformations/figs*
 .idea*
 training/samples*
 training/VAE-training/*
+data/
 # specific ignores
 simulation/run-trajs
 simulation/testimgs
