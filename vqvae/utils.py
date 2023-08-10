@@ -33,12 +33,12 @@ def load_uust(topo=None, max_dataset_size=None, transf="fisheye"):
     valkey = None
 
     if topo is None or topo == "general":
-        train_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms3FULL-T/"
-        valid_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms31FULL-V/"
+        train_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-T/"
+        valid_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
 
     elif topo is "baseline3":
-        train_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms31FULL-V/"
-        valid_data_file_path = "/home/ms7nk/supervised-transformation-dataset-alltransforms31FULL-V/"
+        train_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
+        valid_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
 
     if transf == "resdec":
         image_size = (96, 54, 3) # (120, 67, 3)
@@ -63,8 +63,8 @@ def load_rl(topo=None, max_dataset_size=None, transf="fisheye"):
     key = None
     valkey = None
     if topo is None or topo == "general":
-        train_data_file_path = "/p/sdbb/supervised-transformation-dataset-all/"
-        valid_data_file_path = "/p/sdbb/supervised-transformation-validation-alltopos/" #"/p/sdbb/supervised-transformation-validation/"
+        train_data_file_path = "../data/supervised-transformation-dataset-all/"
+        valid_data_file_path = "../data/supervised-transformation-validation-alltopos/" #"/p/sdbb/supervised-transformation-validation/"
         # key = "sample-base"
     elif topo == "windy":
         train_data_file_path = "/p/autosoft/Meriel/RL-datasets/RLtrainwindy-fisheye-max200-0.05eval-1_24-15_42-L4LPFS"
