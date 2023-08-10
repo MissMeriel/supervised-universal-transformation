@@ -79,7 +79,7 @@ def fisheye(mat0:np.ndarray) -> np.ndarray:
 
     # Apply distortion correction
     # corrected_mat = post.unwarp_image_backward(mat0, xcenter, ycenter, list_bfact)
-    print(f"{mat0.shape=}")
+    # print(f"{mat0.shape=}")
     corrected_mat = np.zeros(mat0.shape)
     for i in range(mat0.shape[-1]):
         corrected_mat[:, :, i] = post.unwarp_image_backward(mat0[:, :, i], xcenter, ycenter, list_bfact)
