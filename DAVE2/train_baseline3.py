@@ -11,7 +11,7 @@ from PIL import Image
 import PIL
 import matplotlib.pyplot as plt
 
-from DAVE2pytorch import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch
+from DAVE2pytorch import DAVE2v3
 from Baseline3DatasetGenerator import MultiDirectoryDataSequence
 
 import time
@@ -54,7 +54,7 @@ def save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer
                 f"total_samples={dataset.get_total_samples()}\n"
                 f"{args.epochs=}\n"
                 f"{epoch=}\n"
-                f"Warm start {args.pretrained_model=}"
+                f"Warm start {args.pretrained_model=}\n"
                 f"{args.lr=}\n"
                 f"{args.batch=}\n"
                 f"{optimizer=}\n"
@@ -64,7 +64,8 @@ def save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer
                 f"{noise_level=}\n"
                 f"dataset_moments={dataset.get_outputs_distribution()}\n"
                 f"{time_to_train=}\n"
-                f"dirs={dataset.get_directories()}")
+                f"dirs={dataset.get_directories()}\n"
+                f"img dims={args.img_dims}")
 
 def main_pytorch_model():
     start_time = time.time()
@@ -73,13 +74,13 @@ def main_pytorch_model():
     print(f"{input_shape=}")
     print(f"{device=}", flush=True)
     if args.effect == "resdec":
-        from DAVE2resdec import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch 
+        from DAVE2resdec import DAVE2v3 
         model =  DAVE2v3(input_shape=input_shape)
     else:
-        from DAVE2pytorch import DAVE2PytorchModel, DAVE2v1, DAVE2v2, DAVE2v3, Epoch
+        from DAVE2pytorch import DAVE2v3
         model = DAVE2v3(input_shape=input_shape)
-    if args.effect != "resdec" and args.pretrained_model is not None:
-        model = model.load(args.pretrained_model, map_location=device)
+        if args.pretrained_model is not None:
+            model = model.load(args.pretrained_model, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
     robustification = True
     noise_level = 15
@@ -168,7 +169,9 @@ def main_pytorch_model():
     time_to_train=time.time() - start_time
     print("Time to train: {}".format(time_to_train), flush=True)
     # save metainformation about training
-    save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
+    # save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
+    save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train):
+
     print(f"{dataset.get_outputs_distribution()=}")
 
 
