@@ -54,7 +54,7 @@ args = parser.parse_args()
 print(f"{args=}", flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-save_path = args.weights.replace(".pth", "_" + args.id + "_" + randstr)
+save_path = "VAL_" +args.weights.replace(".pth", "_" + args.id + "_" + randstr)
 os.makedirs(save_path, exist_ok=True)
 print('Results will be saved in ' + save_path)
 

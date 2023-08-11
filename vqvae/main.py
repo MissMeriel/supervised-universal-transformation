@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 import torchvision
-print(f"{torchvision.__version__=}")
 import torchvision.transforms as T
 
 import argparse
@@ -45,6 +44,7 @@ parser.add_argument("--topo",  type=str, default=None)
 parser.add_argument("--transf",  type=str, default="fisheye")
 parser.add_argument("--basemodel",  type=str, default=None)
 parser.add_argument("--max_dataset_size",  type=int, default=None)
+parser.add_argument("--warmstart",  type=str, default=None)
 
 # whether or not to save model
 parser.add_argument("-save", action="store_true")
@@ -58,7 +58,10 @@ print(f"Using device {device}")
 
 os.makedirs("results", exist_ok=True)
 if args.save:
-    print('Results will be saved in ./results/vqvae_' + args.filename + "_" + timestamp + '.pth')
+    newdir = './results/vqvae_' + args.filename + "_" + timestamp
+    print(f'Results will be saved in {newdir}')
+    if not os.path.exists(newdir):
+        os.mkdir(newdir,  mode=0o777)
 
 """
 Load data and define batch data loaders
@@ -71,6 +74,11 @@ Set up VQ-VAE model with components defined in ./models/ folder
 """
 model = VQVAE(args.n_hiddens, args.n_residual_hiddens,
               args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=args.transf).to(device)
+
+if args.warmstart is not None:
+    checkpoint = torch.load(args.warmstart, map_location=device)
+    model.load_state_dict(checkpoint["model"])
+    print(f"Loaded warmstart weights from {args.warmstart}", flush=True)
 
 """
 Set up optimizer and training loop
@@ -150,7 +158,7 @@ def train():
                 if args.save:
                     hyperparameters = args.__dict__
                     utils.save_model_and_results(
-                        model, results, hyperparameters, args.filename + "_" + timestamp)
+                        model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_epoch{i}.pth")
 
                 print('Epoch', i, 'batch', batch_idx, 'Recon Error:',
                     np.mean(results["recon_errors"][-args.log_interval:]),

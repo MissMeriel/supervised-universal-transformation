@@ -191,7 +191,7 @@ def readable_timestamp():
         ' ', '_').replace(':', '_').lower()
 
 
-def save_model_and_results(model, results, hyperparameters, timestamp):
+def save_model_and_results(model, results, hyperparameters, filename):
     SAVE_MODEL_PATH = os.getcwd() + '/results'
 
     results_to_save = {
@@ -201,8 +201,9 @@ def save_model_and_results(model, results, hyperparameters, timestamp):
     }
     torch.save(results_to_save,
             #    SAVE_MODEL_PATH + '/vqvae_data_' + timestamp + '.pth')
-            SAVE_MODEL_PATH + '/vqvae_' + timestamp + '.pth')
-    # print(f"Saved model to {SAVE_MODEL_PATH + '/vqvae_data_' + timestamp + '.pth'}")
+            # SAVE_MODEL_PATH + '/vqvae_' + timestamp + '.pth')
+            filename)
+    print(f"Saved model to {filename}")
 
 
 def get_depth_image(img_name):
