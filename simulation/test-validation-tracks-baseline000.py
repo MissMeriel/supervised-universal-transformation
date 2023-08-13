@@ -186,9 +186,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
     prev_error = setpoint
-    kphs = []; traj = []; steering_inputs = []; throttle_inputs = []; timestamps = []
+    kphs, traj, steering_inputs, timestamps, throttle_inputs = [], [], [], [], []
     damage = 0.0
-    final_img = None
     total_loops = total_imgs = total_predictions = 0
     start_time = sensors['timer']['time']
     outside_track = False
@@ -241,7 +240,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
         kphs.append(ms_to_kph(wheelspeed))
         total_loops += 1
-        final_img = image
+
         dists = dist_from_line(centerline, vehicle.state['pos'])
         m = np.where(dists == min(dists))[0][0]
         if damage > 1.0:
@@ -263,7 +262,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
     deviation = calc_deviation_from_center(centerline, traj)
     results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'pitch': round(pitch,3),
-               'roll':round(roll,3), "z":round(z,3), 'final_img':final_img, 'deviation':deviation
+               'roll':round(roll,3), "z":round(z,3), 'deviation':deviation, "steering_inputs":steering_inputs,
+                "throttle_inputs":throttle_inputs, "timestamps":timestamps,
                }
     return results
 
@@ -285,7 +285,7 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     model = torch.load(model_name, map_location=device).eval()
     vqvae_name = None
     vqvae = None
-    vqvae_id = "baseline0"
+    vqvae_id = "baseline000"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
@@ -295,7 +295,7 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
-    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}/{transf_id}/{hash}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
+    filepathroot = f"F:/safetransf-base-model-validation-tracks/{model_name.split('/')[-1].replace('.pt', '')}-{hash}/{topo_id}/{topo_id}-{transf_id}-{default_scenario}-{road_id}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
@@ -360,20 +360,42 @@ def summarize_results(all_results):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
-    # transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
-    transf_ids = ["resdec", "mediumfisheye", "resinc","mediumdepth"]
+    transf_id = "medium"
     all_results = []
-    for transf_id in transf_ids:
+    # DONE:
+    tracks = ["extra_small_islandcoast_a_nw","extra_jungleouter_road_a", "extra_jungledrift_road_d", "extra_westcoastrocks", "extra_jungleouter_road_b",
+                "Lturn_uphill", "extra_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "extra_utahlong",
+                "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback", "Rturn_small_island_ai_1", "Rturn_int_a_small_island",
+                "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad",
+                "extra_dock", "Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
+                "extrawinding_industrialrcasphalta", "extrawinding_industrial7978","Rturn_hirochitrack", "Rturn_sidequest", "Rturn_lanelines",
+                "Rturn_bridge", "Lturn_narrowservice", "Rturn_industrialrc_asphaltd", "Rturn_industrial7978",
+                "Rturn_industrialrc_asphaltb", "Lturn_junglemountain_road_e", "extra_jungledrift_road_b", "extra_jungle8161",
+                "extra_junglemountain_alt_f", "extra_junglemountain_road_i", "extra_junglemeander8114", "extra_jungledrift_road_m",
+                "extra_jungledrift_road_k", "extra_jungle8131", "extra_junglemountain_alt_a", "extra_junglemeander7994", "extra_jungle8000",
+                "extra_dock", "extra_winding",  "extra_whatever", "extra_utahtunnel", "extra_wideclosedtrack",
+                "extra_wideclosedtrack2", "extra_windingnarrowtrack", "extra_windingtrack", "extra_multilanehighway", "extra_multilanehighway2",
+                "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",
+                "Lturn_test3", "extra_driver_trainingvalidation2", "extra_lefthandperimeter",
+                "narrowjungleroad1", "narrowjungleroad2", "Lturnyellow", "straightcommercialroad", "Rturninnertrack", "straightwidehighway",
+                "Rturncommercialunderpass", "Lturncommercialcomplex", "Lturnpasswarehouse", "Rturnserviceroad", "Rturnlinedmtnroad",
+                "Rturn_industrial8022whitepave", "Rturn_industrial8068widewhitepave", "Rturn_industrialrc_asphaltc",
+                "extra_westdockleftside", "extra_westmtnroad", "extra_jungledrift_road_f", "extra_junglemain_tunnel", "extra_jungledrift_road_s",
+                "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h", "extra_westoutskirts", "extra_westsuburbs",
+                "extra_westunderpasses", "extra_westLturnway", "extra_westofframp",
+                "dealwithlater"]
+    # FIX: , "extrawinding_industrial8067","extra_windyjungle8082",
+    #topos = ["extra_test7", "Lturn_uphill", "extra_test2", "extra_test1",  "extra_test3", "extra_test1", "extra_test4",]
+    for track in tracks:
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        results = main("Rturnserviceroad", hash=hash, transf_id=transf_id)
+        results = main(track, hash=hash, transf_id=transf_id)
         all_results.append(results)
-        results = main("extra_windingnarrowtrack", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("extra_windingtrack", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("Rturn_bigshouldertopo", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("Rturn_bridgetopo", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        summarize_results(all_results)
+        # results = main("extra_windingnarrowtrack", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+        # results = main("extra_windingtrack", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+        # results = main("Rturn_bigshouldertopo", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+        # results = main("Rturn_bridgetopo", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+    summarize_results(all_results)
