@@ -1199,6 +1199,7 @@ def get_transf(transf_id):
         img_dims = (240,135); fov=75; transf = "fisheye"
     elif transf_id == "resdec":
         img_dims = (96, 54); fov = 51; transf = "resdec"
+        # img_dims = (54, 96); fov = 51; transf = "resdec"
     elif transf_id == "resdec2":
         img_dims = (120, 67); fov = 51; transf = "None"
     elif transf_id == "resinc":

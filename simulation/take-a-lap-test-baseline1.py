@@ -356,8 +356,8 @@ def main(topo_id, hash="000", detransf_id=None):
 def summarize_results(all_results):
     distances, deviations = [], []
     for result in all_results:
-        distances.extend(result["distances"])
-        deviations.extend(result["deviations"])
+        distances.extend(result["dists_travelled"])
+        deviations.extend(result["dists_from_centerline"])
     print(f"5-TRACK SUMMARY:"
           f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
@@ -368,7 +368,7 @@ def summarize_results(all_results):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    detransf_ids = ["mediumdepth", "resinc", "resdec"] #, "mediumfisheye"]
     all_results = []
     for detransf_id in detransf_ids:
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))

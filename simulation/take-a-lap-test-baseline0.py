@@ -209,7 +209,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         if transf is not None:
             if "depth" in transf:
                 image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-            elif "res" in detransf:
+            elif "res" in transf:
                 image = image.resize((192, 108))
 
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
@@ -290,11 +290,11 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
 
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.research', port=64156)
+                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64956)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
-    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}-{detransf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
+    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}/{transf_id}/{hash}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
@@ -348,8 +348,8 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
 def summarize_results(all_results):
     distances, deviations = [], []
     for result in all_results:
-        distances.extend(result["distances"])
-        deviations.extend(result["deviations"])
+        distances.extend(result["dists_travelled"])
+        deviations.extend(result["dists_from_centerline"])
     print(f"5-TRACK SUMMARY:"
           f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
@@ -359,7 +359,8 @@ def summarize_results(all_results):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    # transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    transf_ids = ["resdec", "mediumfisheye", "resinc","mediumdepth"]
     all_results = []
     for transf_id in transf_ids:
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
