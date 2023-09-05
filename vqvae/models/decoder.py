@@ -35,7 +35,6 @@ class Decoder(nn.Module):
         #                        stride=stride, padding=1)
         # )
 
-        # print(f"decoder h_dim={h_dim}")
         self.convtrans1 = nn.ConvTranspose2d(in_dim, h_dim, kernel_size=kernel-1, stride=stride-1, padding=1)
         self.residual_stack = ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
         self.convtrans2 = nn.ConvTranspose2d(h_dim, h_dim // 2, kernel_size=kernel, stride=stride, padding=1)
@@ -58,18 +57,10 @@ class Decoder(nn.Module):
 
     def forward(self, x):
         y = self.convtrans1(x)
-        # if self.verbose:
-        #     print(f"after convtrans1 {y.shape=}")
         y = self.residual_stack(y)
-        # if self.verbose:
-        #     print(f"after residual_stack {y.shape=}")
         y = self.convtrans2(y)
-        # if self.verbose:
-        #     print(f"after convtrans2 {y.shape=}")
         y = nn.ReLU()(y)
         y = self.convtrans3(y)
-        # if self.verbose:
-        #     print(f"after convtrans3 {y.shape=}")
         return y
 
 
@@ -81,4 +72,4 @@ if __name__ == "__main__":
     # test decoder
     decoder = Decoder(40, 128, 3, 64)
     decoder_out = decoder(x)
-    print('Dncoder out shape:', decoder_out.shape)
+    print('Decoder out shape:', decoder_out.shape)
