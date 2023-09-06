@@ -21,10 +21,11 @@ class Encoder(nn.Module):
 
     """
 
-    def __init__(self, in_dim, h_dim, n_res_layers, res_h_dim):
+    def __init__(self, in_dim, h_dim, n_res_layers, res_h_dim, transf=None, verbose=False):
         super(Encoder, self).__init__()
         kernel = 4
         stride = 2
+        self.verbose = verbose
         self.conv_stack = nn.Sequential(
             nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel,
                       stride=stride, padding=1),
@@ -36,7 +37,6 @@ class Encoder(nn.Module):
                       stride=stride-1, padding=1),
             ResidualStack(
                 h_dim, h_dim, res_h_dim, n_res_layers)
-
         )
 
     def forward(self, x):

@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-
+python3.8 -m pip install --upgrade pip
 python3.8 -m venv .venv-sut
 . .venv-sut/bin/activate
 # pip3 install tensorboard kornia numpy black mypy matplotlib scipy scikit-image pandas opencv-python markupsafe==2.0.1

@@ -6,6 +6,7 @@ transformations/figs*
 training/samples*
 training/VAE-training/*
 data/
+datasets/
 DAVE2/results/
 DAVE2/BASELINE*
 vqvae/results

@@ -16,7 +16,7 @@ class VQVAE(nn.Module):
                  n_embeddings, embedding_dim, beta, save_img_embedding_map=False, transf=None):
         super(VQVAE, self).__init__()
         # encode image into continuous latent space
-        self.encoder = Encoder(3, h_dim, n_res_layers, res_h_dim)
+        self.encoder = Encoder(3, h_dim, n_res_layers, res_h_dim, transf)
         self.pre_quantization_conv = nn.Conv2d(
             h_dim, embedding_dim, kernel_size=1, stride=1)
         # pass continuous latent vector through discretization bottleneck
@@ -35,8 +35,7 @@ class VQVAE(nn.Module):
         z_e = self.encoder(x)
 
         z_e = self.pre_quantization_conv(z_e)
-        embedding_loss, z_q, perplexity, _, _ = self.vector_quantization(
-            z_e)
+        embedding_loss, z_q, perplexity, _, _ = self.vector_quantization(z_e)
         x_hat = self.decoder(z_q)
 
         if verbose:
@@ -46,3 +45,14 @@ class VQVAE(nn.Module):
             # assert False
 
         return embedding_loss, x_hat, perplexity
+
+
+if __name__ == "__main__":
+    # random data
+    x = np.random.random_sample((1, 3, 270, 480))
+    x = torch.tensor(x).float()
+
+    # test vqvae
+    vqvae = VQVAE()
+    embedding_loss, x_hat, perplexity = vqvae(x)
+    print('VQVAE out shape:', x_hat.shape)

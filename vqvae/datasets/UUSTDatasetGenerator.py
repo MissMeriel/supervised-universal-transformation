@@ -256,10 +256,14 @@ class TransformationDataSequence(data.Dataset):
 
         sample = {"image_base": image_base, "image_transf": image_transf, "steering_input": torch.FloatTensor([y_steer]), "img_name": str(img_name), "all": torch.FloatTensor([y_steer])}
         orig_sample = {"image_base": image_base_orig, "image_transf": image_transf_orig,"steering_input": torch.FloatTensor([orig_y_steer]), "img_name": str(img_name), "all": torch.FloatTensor([orig_y_steer])}
-        # try:
+        try:
+            self.cache[idx] = orig_sample
+        except MemoryError as e:
+            print(f"Memory error adding sample to cache: {e}", flush=True)
+        # if sys.getsizeof(self.cache) < 8 * 1.0e10:
         #     self.cache[idx] = orig_sample
-        # except MemoryError as e:
-        #     print(f"Memory error adding sample to cache: {e}", flush=True)
+        # else:
+        #     print(f"{len(self.cache.keys())=}")
         return sample
 
     def get_inputs_distribution(self):

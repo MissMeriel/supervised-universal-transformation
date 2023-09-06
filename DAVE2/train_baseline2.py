@@ -40,6 +40,8 @@ def parse_args():
     parser.add_argument('-w', '--warmstart', type=str, default=None, help='path to warmstart weights')
     parser.add_argument('-s', '--start_epochs', type=int, default=0, help='pretrained model epochs')
     parser.add_argument('-b', '--batch', type=int, default=64, help='batch size')
+    parser.add_argument("--warmstart",  type=str, default=None)
+
     args = parser.parse_args()
     print(f"cmd line args:{args}")    
     return args
@@ -81,7 +83,11 @@ def main_pytorch_model():
         model = DAVE2v3(input_shape=input_shape)
     if args.effect != "resdec" and args.effect != "resinc" and args.pretrained_model is not None:
         model = model.load(args.pretrained_model, map_location=device)
+<<<<<<< HEAD
     elif args.warmstart is not None:
+=======
+    if args.warmstart is not None:
+>>>>>>> b6ac5b8b6e6ff4380e2c286bbb179fb2999ae9c3
         model = model.load(args.warmstart, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
     robustification = True
@@ -102,9 +108,10 @@ def main_pytorch_model():
     timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
     
     randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    newdir = f"./BASELINE2-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
+    newdir = f"./results_baseline2/BASELINE2-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
     if not os.path.exists(newdir):
-        os.mkdir(newdir,  mode=0o777)
+        # os.mkdir(newdir,  mode=0o777)
+        os.makedirs(newdir, exist_ok=True)
         shutil.copyfile(__file__, f"{newdir}/{__file__.split('/')[-1]}", follow_symlinks=False)
         shutil.copyfile("Baseline2DatasetGenerator.py", f"{newdir}/Baseline2DatasetGenerator.py", follow_symlinks=False)
     iteration = f'{model._get_name()}-{input_shape[0]}x{input_shape[1]}-{args.epochs}epoch-{args.batch}batch-{int(dataset.get_total_samples()/1000)}Ksamples'
