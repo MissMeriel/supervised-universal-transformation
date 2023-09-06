@@ -192,7 +192,7 @@ def readable_timestamp():
 
 
 def save_model_and_results(model, results, hyperparameters, filename):
-    SAVE_MODEL_PATH = os.getcwd() + '/results'
+    # SAVE_MODEL_PATH = os.getcwd() + '/results'
 
     results_to_save = {
         'model': model.state_dict(),
