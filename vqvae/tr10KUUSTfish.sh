@@ -5,7 +5,6 @@
 #SBATCH --gres=gpu:1
 
 . ../.venv-sut/bin/activate
-pip install scikit-learn
 epochs=500
 max_dataset_sizes=(10000)
 transfs=(fisheye)

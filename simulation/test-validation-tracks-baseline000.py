@@ -22,7 +22,6 @@ from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
 from sim_utils import *
 from transformations import transformations
 from transformations import detransformations
-import torchvision.transforms as T
 
 # globals
 integral, prev_error = 0.0, 0.0
@@ -187,9 +186,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
     prev_error = setpoint
-    kphs = []; traj = []; steering_inputs = []; throttle_inputs = []; timestamps = []
+    kphs, traj, steering_inputs, timestamps, throttle_inputs = [], [], [], [], []
     damage = 0.0
-    final_img = None
     total_loops = total_imgs = total_predictions = 0
     start_time = sensors['timer']['time']
     outside_track = False
@@ -207,34 +205,23 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         image = sensors['front_cam']['colour'].convert('RGB')
         image_seg = sensors['front_cam']['annotation'].convert('RGB')
         image_depth = sensors['front_cam']['depth'].convert('RGB')
+        if transf is not None:
+            if "depth" in transf:
+                image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
+            elif "res" in transf:
+                image = image.resize((192, 108))
 
-        try:
-            processed_img = model.process_image(image).to(device)
-        except:
-            processed_img = transform(np.asarray(image))[None]
-        if vqvae is not None:
-            embedding_loss, processed_img, perplexity = vqvae(processed_img)
-        if transf == "resinc":
-            print(f"{processed_img.shape=}")
-            processed_img = T.Resize(size=(image.size[1], image.size[0]))(processed_img)
-            print(f"{processed_img.shape=}")
-            # x.resize_(2, 2)
-        print(f"{processed_img.shape=}")
-        prediction = model(processed_img) #.resize_(1, 3, 108, 192))
-        steering = float(prediction.item())
-        vqvae_viz = processed_img.cpu().detach()[0]
-        vqvae_viz = vqvae_viz.permute(1,2,0)
-        cv2.imshow('car view', vqvae_viz.numpy()[:, :, ::-1])
+        cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
         dt = (sensors['timer']['time'] - start_time) - runtime
-        # try:
-        #     processed_img = model.process_image(image).to(device)
-        # except Exception as e:
-        #     processed_img = transform(np.asarray(image))[None]
-        # prediction = model(processed_img.type(torch.float32))
-        # steering = float(prediction.item())
+        try:
+            processed_img = model.process_image(image).to(device)
+        except Exception as e:
+            processed_img = transform(np.asarray(image))[None]
+        prediction = model(processed_img.type(torch.float32))
+        steering = float(prediction.item())
         runtime = sensors['timer']['time'] - start_time
         total_predictions += 1
         if abs(steering) > 0.15:
@@ -253,7 +240,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
         kphs.append(ms_to_kph(wheelspeed))
         total_loops += 1
-        final_img = image
+
         dists = dist_from_line(centerline, vehicle.state['pos'])
         m = np.where(dists == min(dists))[0][0]
         if damage > 1.0:
@@ -275,7 +262,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
     deviation = calc_deviation_from_center(centerline, traj)
     results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'pitch': round(pitch,3),
-               'roll':round(roll,3), "z":round(z,3), 'final_img':final_img, 'deviation':deviation
+               'roll':round(roll,3), "z":round(z,3), 'deviation':deviation, "steering_inputs":steering_inputs,
+                "throttle_inputs":throttle_inputs, "timestamps":timestamps,
                }
     return results
 
@@ -287,41 +275,27 @@ def zero_globals():
     roadleft = []
     roadright = []
 
-from vqvae.models.vqvae import VQVAE
-def main(topo_id, hash="000", detransf_id=None):
+
+def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     global base_filename
     zero_globals()
-    # params
-    model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-
-    transf_id = "resdec"
-    vqvae_name = "F:/SUT-baselines/baseline4/results/vqvae_RQ1v2_resdec_samples10000_epochs500_5444459_fri_jul_21_19_05_57_2023.pth"
-
-    transf_id = "mediumfisheye"
-    vqvae_name = "F:/SUT-baselines/baseline4/results/vqvae_UUST_depth_samples10000_epochs500_52054974_mon_aug_7_10_16_44_2023.pth"
-
-    # transf_id = "mediumdepth"
-    # vqvae_name = "F:/SUT-baselines/baseline4/results/vqvae_RQ1v2_depth_samples10000_epochs500_5444460_sat_jul_22_16_36_37_2023.pth"
-    # #vqvae_name = "F:/SUT-baselines/baseline4/results/vqvae_RQ1v2_resdec_samplesall_epochs500_5549205_wed_jul_26_16_43_15_2023.pth"
-
-    transf_id = "resinc"
-    vqvae_name = "F:/SUT-baselines/baseline4/vqvae_UUST_resinc_samples10000_epochs500_52036393_mon_aug_7_19_23_05_2023.pth"
-
+    # model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-    vqvae = VQVAE(128, 32, 2, 512, 64, .25, transf=transf_id).eval().to(device)
-    checkpoint = torch.load(vqvae_name, map_location=device)
-    vqvae.load_state_dict(checkpoint["model"])
-    vqvae_id = "baseline410K"
+    vqvae_name = None
+    vqvae = None
+    vqvae_id = "baseline000"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
+
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
                                           beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64956)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
-    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}/{transf_id}/{hash}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
+    filepathroot = f"F:/safetransf-base-model-validation-tracks/{model_name.split('/')[-1].replace('.pt', '')}-{hash}/{topo_id}/{topo_id}-{transf_id}-{default_scenario}-{road_id}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
@@ -353,8 +327,7 @@ def main(topo_id, hash="000", detransf_id=None):
         "runtimes": runtimes
     }
 
-    # picklefile = open(f"{filepathroot}/summary-{model_name.split('/')[-1]}_{vqvae_id}.pickle", 'wb')
-    picklefile = open(f"{filepathroot}/summary.pickle", 'wb')
+    picklefile = open(f"{filepathroot}/summary-{model_name.split('/')[-1]}_{vqvae_id}.pickle", 'wb')
     pickle.dump(summary, picklefile)
     picklefile.close()
     print(f"{topo_id} {transf_id} OUT OF {runs} RUNS:"
@@ -365,7 +338,7 @@ def main(topo_id, hash="000", detransf_id=None):
           f"\n\t{deviations:}"
           f"\n\t{vqvae_name=}"
           f"\n\t{model_name=}")
-    id = f"basemodelalone-{vqvae_id}"
+    id = f"DAVE2V3-{vqvae_id}"
     try:
         plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3 ", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
     except:
@@ -373,44 +346,56 @@ def main(topo_id, hash="000", detransf_id=None):
     bng.close()
     return summary
 
-
 def summarize_results(all_results):
-    distances, deviations, avg_percentage, avgd_distances = [], [], [], []
-    trackcount = 5
-    for i, result in enumerate(all_results):
+    distances, deviations = [], []
+    for result in all_results:
         distances.extend(result["dists_travelled"])
         deviations.extend(result["dists_from_centerline"])
-        avgd_distances.append(sum(distances[i]) / len(distances[i]))
-        # print((distances[i] / track_lengths[i]) / trackcount)
-        # print(track_lengths[i])
-        x = [d / track_lengths[i] for d in distances[i]]
-        # print(x)
-        avg_percentage += sum(x) / trackcount
     print(f"5-TRACK SUMMARY:"
           f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
-          f"\n\tAvg. track %% travelled: {((avg_percentage / trackcount) * 100):.1f}%"
-          f"\n\tTotal distance travelled: {sum(avgd_distances):.1f}"
-    )
-
+          )
 
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    transf_id = "medium"
     all_results = []
-    detransf_id = None
-    # for detransf_id in detransf_ids:
-    hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    results = main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
-    all_results.append(results)
-    results = main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
-    all_results.append(results)
-    results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
-    all_results.append(results)
-    results = main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
-    all_results.append(results)
-    results = main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)
-    all_results.append(results)
+    # DONE:
+    tracks = ["extra_small_islandcoast_a_nw","extra_jungleouter_road_a", "extra_jungledrift_road_d", "extra_westcoastrocks", "extra_jungleouter_road_b",
+                "Lturn_uphill", "extra_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "extra_utahlong",
+                "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback", "Rturn_small_island_ai_1", "Rturn_int_a_small_island",
+                "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad",
+                "extra_dock", "Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
+                "extrawinding_industrialrcasphalta", "extrawinding_industrial7978","Rturn_hirochitrack", "Rturn_sidequest", "Rturn_lanelines",
+                "Rturn_bridge", "Lturn_narrowservice", "Rturn_industrialrc_asphaltd", "Rturn_industrial7978",
+                "Rturn_industrialrc_asphaltb", "Lturn_junglemountain_road_e", "extra_jungledrift_road_b", "extra_jungle8161",
+                "extra_junglemountain_alt_f", "extra_junglemountain_road_i", "extra_junglemeander8114", "extra_jungledrift_road_m",
+                "extra_jungledrift_road_k", "extra_jungle8131", "extra_junglemountain_alt_a", "extra_junglemeander7994", "extra_jungle8000",
+                "extra_dock", "extra_winding",  "extra_whatever", "extra_utahtunnel", "extra_wideclosedtrack",
+                "extra_wideclosedtrack2", "extra_windingnarrowtrack", "extra_windingtrack", "extra_multilanehighway", "extra_multilanehighway2",
+                "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",
+                "Lturn_test3", "extra_driver_trainingvalidation2", "extra_lefthandperimeter",
+                "narrowjungleroad1", "narrowjungleroad2", "Lturnyellow", "straightcommercialroad", "Rturninnertrack", "straightwidehighway",
+                "Rturncommercialunderpass", "Lturncommercialcomplex", "Lturnpasswarehouse", "Rturnserviceroad", "Rturnlinedmtnroad",
+                "Rturn_industrial8022whitepave", "Rturn_industrial8068widewhitepave", "Rturn_industrialrc_asphaltc",
+                "extra_westdockleftside", "extra_westmtnroad", "extra_jungledrift_road_f", "extra_junglemain_tunnel", "extra_jungledrift_road_s",
+                "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h", "extra_westoutskirts", "extra_westsuburbs",
+                "extra_westunderpasses", "extra_westLturnway", "extra_westofframp",
+                "dealwithlater"]
+    # FIX: , "extrawinding_industrial8067","extra_windyjungle8082",
+    #topos = ["extra_test7", "Lturn_uphill", "extra_test2", "extra_test1",  "extra_test3", "extra_test1", "extra_test4",]
+    for track in tracks:
+        hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        results = main(track, hash=hash, transf_id=transf_id)
+        all_results.append(results)
+        # results = main("extra_windingnarrowtrack", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+        # results = main("extra_windingtrack", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+        # results = main("Rturn_bigshouldertopo", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
+        # results = main("Rturn_bridgetopo", hash=hash, transf_id=transf_id)
+        # all_results.append(results)
     summarize_results(all_results)

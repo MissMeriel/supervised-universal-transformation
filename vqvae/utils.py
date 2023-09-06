@@ -1,5 +1,5 @@
 import torch
-import torchvision.datasets as datasets
+# import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import time
@@ -36,7 +36,7 @@ def load_uust(topo=None, max_dataset_size=None, transf="fisheye"):
         train_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-T/"
         valid_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
 
-    elif topo is "baseline3":
+    elif topo == "baseline3":
         train_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
         valid_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
 

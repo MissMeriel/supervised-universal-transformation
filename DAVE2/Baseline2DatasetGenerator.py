@@ -184,11 +184,14 @@ class MultiDirectoryDataSequence(data.Dataset):
             sample =  {"image_base": image_base, "steering_input": orig_y_steer, "throttle_input": y_throttle}
         
         orig_sample =  {"image_base": image_base, "steering_input": orig_y_steer, "throttle_input": y_throttle}
-        
-        if sys.getsizeof(self.cache) < 8 * 1.0e10:
+        try:
             self.cache[idx] = orig_sample
-        else:
-            print(f"{len(self.cache.keys())=}")
+        except MemoryError as e:
+            print(f"Memory error adding sample to cache: {e}", flush=True)
+        # if sys.getsizeof(self.cache) < 8 * 1.0e25:
+        #     self.cache[idx] = orig_sample
+        # else:
+        #     print(f"{len(self.cache.keys())=}")
         return sample
 
     def get_outputs_distribution(self):

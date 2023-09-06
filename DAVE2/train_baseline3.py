@@ -102,9 +102,10 @@ def main_pytorch_model():
     timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
     
     randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    newdir = f"./BASELINE3-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
+    newdir = f"./results_baseline3/BASELINE3-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
     if not os.path.exists(newdir):
-        os.mkdir(newdir,  mode=0o777)
+        # os.mkdir(newdir,  mode=0o777)
+        os.makedirs(newdir, exist_ok=True)
         shutil.copyfile(__file__, f"{newdir}/{__file__.split('/')[-1]}", follow_symlinks=False)
         shutil.copyfile("UUSTDatasetGenerator.py", f"{newdir}/UUSTDatasetGenerator.py", follow_symlinks=False)
     iteration = f'{model._get_name()}-{input_shape[0]}x{input_shape[1]}-{args.epochs}epoch-{args.batch}batch-{int(dataset.get_total_samples()/1000)}Ksamples'

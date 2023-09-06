@@ -3,8 +3,9 @@
 #SBATCH -A lesslab
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
+#SBATCH --mem 100GB
 
-. /p/sdbb/BBTG/VAE/.venv-bbtg/bin/activate
+. ../.venv-sut/bin/activate
 vqvaes="$(ls -tr ./results/*.pth)"
 basemodel="./model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
 for vqvae in ${vqvaes[@]}; do

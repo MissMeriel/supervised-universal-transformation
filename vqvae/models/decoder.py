@@ -49,8 +49,6 @@ class Decoder(nn.Module):
         #     self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=16, stride=1, padding=(8, 2)) # 480 X 270 to 108 x 192, output is torch.Size([1, 3, 266, 478])
 
 
-
-
     def forward(self, x):
         return self.inverse_conv_stack(x)
         # y = self.convtrans1(x)

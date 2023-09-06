@@ -10,6 +10,7 @@ data/
 simulation/run-trajs
 simulation/testimgs
 simulation/testimgsdeblurred
+simulation/figures
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
