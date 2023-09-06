@@ -15,8 +15,8 @@ for transf in ${transfs[@]}; do
         echo; echo Transformation is $transf; echo max_dataset_size is $max_dataset_size
         filename=UUST_"$transf"_samples"$max_dataset_size"_epochs"$epochs"_"$SLURM_JOB_ID"
         python main.py --dataset UUST --topo general --transf $transf --epochs $epochs --basemodel $basemodel --max_dataset_size $max_dataset_size -save --filename $filename
-        weights=$(ls -t results/*"$filename"*.pth | head -1)
-        echo; echo Running validation for $weights
-        python validate.py --dataset UUST --topo general --transf $transf --weights $weights --basemodel $basemodel
+        # weights=$(ls -t results/*"$filename"*.pth | head -1)
+        # echo; echo Running validation for $weights
+        # python validate.py --dataset UUST --topo general --transf $transf --weights $weights --basemodel $basemodel
     done
 done

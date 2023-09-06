@@ -74,8 +74,10 @@ def main_pytorch_model():
     print(f"{input_shape=}")
     print(f"{device=}", flush=True)
     if args.effect == "resdec":
-        from DAVE2resdec import DAVE2v3 
+        from DAVE2resdec import DAVE2v3
         model =  DAVE2v3(input_shape=input_shape)
+        if args.pretrained_model is not None:
+            model = model.load(args.pretrained_model, map_location=device)
     else:
         from DAVE2pytorch import DAVE2v3
         model = DAVE2v3(input_shape=input_shape)
@@ -170,7 +172,7 @@ def main_pytorch_model():
     print("Time to train: {}".format(time_to_train), flush=True)
     # save metainformation about training
     # save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
-    save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train):
+    save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
 
     print(f"{dataset.get_outputs_distribution()=}")
 
