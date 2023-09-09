@@ -291,7 +291,7 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
 
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64956)
+                                          beamnginstance='F:/BeamNG.researchINSTANCE3', port=64956)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
@@ -360,11 +360,9 @@ def summarize_results(all_results):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
-    # transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
     transf_ids = ["resdec", "mediumfisheye", "resinc","mediumdepth"]
-    all_results = []
     for transf_id in transf_ids:
+        all_results = []
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
         results = main("Rturnserviceroad", hash=hash, transf_id=transf_id)
         all_results.append(results)

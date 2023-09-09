@@ -1,4 +1,8 @@
 import sys
+
+sys.path.append("C:/Users/Meriel/Documents/GitHub/BeamNGpy/src")
+sys.path.append("C:/Users/Meriel/Documents/GitHub/IFAN")
+
 from pathlib import Path
 import string
 import pickle
@@ -22,6 +26,8 @@ from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
 from sim_utils import *
 from transformations import transformations
 from transformations import detransformations
+
+# C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\venv-sutransf\Scripts\python.exe C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\simulation\test-validation-tracks-baseline000.py
 
 # globals
 integral, prev_error = 0.0, 0.0
@@ -245,7 +251,6 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         m = np.where(dists == min(dists))[0][0]
         if damage > 1.0:
             print(f"Damage={damage:.3f}, exiting...")
-            print(f"Try next spawn: {centerline[m+5]}")
             break
         bng.step(1, wait=True)
 
@@ -261,8 +266,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     cv2.destroyAllWindows()
 
     deviation = calc_deviation_from_center(centerline, traj)
-    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'pitch': round(pitch,3),
-               'roll':round(roll,3), "z":round(z,3), 'deviation':deviation, "steering_inputs":steering_inputs,
+    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj,
+               'deviation':deviation, "steering_inputs":steering_inputs,
                 "throttle_inputs":throttle_inputs, "timestamps":timestamps,
                }
     return results
@@ -279,6 +284,7 @@ def zero_globals():
 def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     global base_filename
     zero_globals()
+    random.seed("1703")
     # model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
     model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -291,9 +297,10 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
 
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64956)
+                                          beamnginstance='F:/BeamNG.researchINSTANCE3', port=64956)
     distances, deviations, trajectories, runtimes = [], [], [], []
-    runs = 5
+    steerings, throttles, timestamps = [], [], []
+    runs = 3
 
     filepathroot = f"F:/safetransf-base-model-validation-tracks/{model_name.split('/')[-1].replace('.pt', '')}-{hash}/{topo_id}/{topo_id}-{transf_id}-{default_scenario}-{road_id}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
@@ -310,10 +317,16 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
         deviations.append(results['deviation']['mean'])
         trajectories.append(results["traj"])
         runtimes.append(results['runtime'])
+        steerings.append(results["steering_inputs"])
+        throttles.append(results["throttle_inputs"])
+        timestamps.append(results["timestamps"])
     summary = {
         "trajectories": trajectories,
         "dists_from_centerline": deviations,
         "dists_travelled": distances,
+        "steering_inputs": steerings,
+        "throttle_inputs": throttles,
+        "timestamps": timestamps,
         "img_dims": img_dims,
         "centerline_interpolated": centerline_interpolated,
         "roadleft": roadleft,
@@ -357,6 +370,12 @@ def summarize_results(all_results):
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
           )
 
+def load_tracklist(filename="posefiles/validation-tracks.txt"):
+    with open(filename, "r") as f:
+        tracks = f.readlines()
+        tracks = [t.replace("\n", "") for t in tracks]
+    return tracks
+
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
@@ -384,8 +403,10 @@ if __name__ == '__main__':
                 "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h", "extra_westoutskirts", "extra_westsuburbs",
                 "extra_westunderpasses", "extra_westLturnway", "extra_westofframp",
                 "dealwithlater"]
-    # FIX: , "extrawinding_industrial8067","extra_windyjungle8082",
+    # FIX: , "extrawinding_industrial8067","extra_windyjungle8082", "extra_utahswitchback"
+    # FIX 4 VALIDATION: "countryroad", "Rturn_narrowcutthru"
     #topos = ["extra_test7", "Lturn_uphill", "extra_test2", "extra_test1",  "extra_test3", "extra_test1", "extra_test4",]
+    tracks = load_tracklist("posefiles/validation-tracks2.txt")
     for track in tracks:
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
         results = main(track, hash=hash, transf_id=transf_id)

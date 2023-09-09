@@ -11,7 +11,8 @@ import copy
 from scipy import interpolate
 import torch
 from torchvision.transforms import Compose, ToPILImage, ToTensor
-
+import argparse
+import pandas as pd
 
 # from ast import literal_eval
 # from wand.image import Image as WandImage
@@ -139,7 +140,7 @@ def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,
     random.seed(1703)
     setup_logging()
     print(road_id)
-    beamng = BeamNGpy('localhost', port, home='C:/Users/Meriel/Documents/BeamNG.research.v1.7.0.1', user=beamnginstance)
+    beamng = BeamNGpy('localhost', port, home='F:/BeamNG.research.v1.7.0.1', user=beamnginstance)
     scenario = Scenario(default_scenario, 'research_test')
     vehicle = Vehicle('ego_vehicle', model=vehicle_model, licence='EGO', color=default_color)
     vehicle = setup_sensors(vehicle, img_dims, fov=fov)
@@ -165,7 +166,7 @@ def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,
 
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
-                 transf=None, detransf=None):
+                 transf=None, detransf=None, topo=None):
     global base_filename
     global integral, prev_error, setpoint
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
@@ -179,9 +180,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
-    pitch = vehicle.state['pitch'][0]
-    roll = vehicle.state['roll'][0]
-    z = vehicle.state['pos'][2]
+    image.save(f"./start-{topo}-{detransf}.jpg")
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
@@ -269,8 +268,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     cv2.destroyAllWindows()
 
     deviation = calc_deviation_from_center(centerline, traj)
-    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'pitch': round(pitch,3),
-               'roll':round(roll,3), "z":round(z,3), 'final_img':final_img, 'deviation':deviation
+    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj,
+               'final_img':final_img, 'deviation':deviation
                }
     return results
 
@@ -286,8 +285,7 @@ def zero_globals():
 def main(topo_id, hash="000", detransf_id=None):
     global base_filename
     zero_globals()
-    model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    # detransf_id = "mediumdepth"
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     transf_id = None
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
@@ -298,7 +296,7 @@ def main(topo_id, hash="000", detransf_id=None):
     img_dims, fov, transf = get_transf(detransf_id)
     print(f"IMAGE DIMS={img_dims}")
     vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE2', port=64556)
+                                          beamnginstance='F:/BeamNG.research', port=64556)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
@@ -307,7 +305,7 @@ def main(topo_id, hash="000", detransf_id=None):
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     for i in range(runs):
-        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id)
+        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id)
         results['distance'] = get_distance_traveled(results['traj'])
         # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
         print(f"\nBASE MODEL USING IMG DIMS {img_dims} RUN {i}:"
@@ -353,6 +351,7 @@ def main(topo_id, hash="000", detransf_id=None):
     bng.close()
     return summary
 
+
 def summarize_results(all_results):
     distances, deviations = [], []
     for result in all_results:
@@ -368,18 +367,33 @@ def summarize_results(all_results):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    detransf_ids = ["mediumdepth", "resinc", "resdec"] #, "mediumfisheye"]
-    all_results = []
+    detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+
     for detransf_id in detransf_ids:
+        all_results = []
         hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        # results = main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
+        # results = main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
+        # results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
+        # results = main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
+        # results = main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)
+        results = main("Lturnpasswarehouse", hash=hash, detransf_id=detransf_id)
+        results = main("extra_driver_trainingvalidation2", hash=hash, detransf_id=detransf_id) # fork at the end
+        results = main("Rturn_industrialrc_asphaltc", hash=hash, detransf_id=detransf_id)
+        results = main("Rturn_servicecutthru", hash=hash, detransf_id=detransf_id)
         results = main("Rturnserviceroad", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("extra_windingnarrowtrack", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
+        results = main("Rturncommercialunderpass", hash=hash, detransf_id=detransf_id)
         results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("Rturn_bigshouldertopo", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        results = main("Rturn_bridgetopo", hash=hash, detransf_id=detransf_id)
-        all_results.append(results)
-        summarize_results(all_results)
+        results = main("extra_utahlong", hash=hash, detransf_id=detransf_id)
+        results = main("extra_westunderpasses", hash=hash, detransf_id=detransf_id)
+        results = main("extra_jungledrift_road_d", hash=hash, detransf_id=detransf_id)
+        results = main("extra_windingtrack", hash=hash, detransf_id=detransf_id)
+        results = main("extra_westunderpasses", hash=hash, detransf_id=detransf_id)
+        results = main("extra_jungledrift_road_d", hash=hash, detransf_id=detransf_id)
+        results = main("extra_jungledrift_road_e", hash=hash, detransf_id=detransf_id)
+        results = main("extra_jungledrift_road_s", hash=hash, detransf_id=detransf_id)
+        results = main("extra_wideclosedtrack", hash=hash, detransf_id=detransf_id)
+        results = main("extra_dock", hash=hash, detransf_id=detransf_id)
+        results = main("extrawinding_industrial7978", hash=hash, detransf_id=detransf_id) # start a few meters later to avoid immediate left turn
+        results = main("straightcommercialroad", hash=hash, detransf_id=detransf_id)
+        #results = main("Rturn_industrial8068widewhitepave", hash=hash, detransf_id=detransf_id) # too parking lot like? too short now that i've clipped the windy first bit?

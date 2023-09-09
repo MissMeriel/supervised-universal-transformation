@@ -11,6 +11,9 @@ simulation/run-trajs
 simulation/testimgs
 simulation/testimgsdeblurred
 simulation/figures
+simulation/simresults
+simulation/starting-images
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
