@@ -95,11 +95,11 @@ results = {
     'pred_errors': [],
 }
 if args.basemodel is None:
-    basemodelpath = "/p/sdbb/DAVE2-Keras/DAVE2v3-108x192-82samples-5000epoch-5116933-4_12-23_11-2D8U63/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
+    basemodelpath = "../weights/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
 else:
     basemodelpath = args.basemodel
 print(f"{basemodelpath=}")
-prediction_weight = 0.5
+prediction_weight = 0.00005
 print(f"WEIGHTING PREDICTION ERROR WITH {prediction_weight}")
 basemodel = torch.load(basemodelpath, map_location=device)
 mseloss = torch.nn.MSELoss()
@@ -127,7 +127,7 @@ def train():
         x_hat_transform = T.Resize((108, 192))
     else:
         x_hat_transform = None
-    lowest_loss = 1e-2
+    lowest_loss = 1
     best_model_count = 0
     for i in range(args.epochs):
         for batch_idx, (x) in enumerate(training_loader):
@@ -158,9 +158,9 @@ def train():
 
             if batch_idx % args.log_interval == 0:
                 # save model and print values
-                print('Epoch', i, 'batch', batch_idx, 'Recon Error:',
-                    np.mean(results["recon_errors"][-args.log_interval:]),
+                print('Epoch', i, 'batch', batch_idx, 
                     'Loss', np.mean(results["loss_vals"][-args.log_interval:]),
+                    'Recon Error:', np.mean(results["recon_errors"][-args.log_interval:]),
                     'Perplexity:', np.mean(results["perplexities"][-args.log_interval:]), 
                     'Prediction loss:', np.mean(results["pred_errors"][-args.log_interval:]), 
                     flush=True)
@@ -171,6 +171,7 @@ def train():
                         model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_bestmodel{i:03}.pth")
                     print(f"New best model! Loss: {np.mean(results['loss_vals'][-args.log_interval:])}")
                     best_model_count += 1
+                    lowest_loss = np.mean(results['loss_vals'][-args.log_interval:])
         
         if args.save:
             hyperparameters = args.__dict__

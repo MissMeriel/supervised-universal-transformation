@@ -55,9 +55,10 @@ print(f"{args=}", flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 weights_root = args.weights.split("/")[-2] + "_" + args.id + "_" + randstr
-save_path = "VAL_" + weights_root
+save_path = "results_val/VAL_" + weights_root
 os.makedirs(save_path, exist_ok=True)
-print('Results will be saved in ' + save_path)
+print(f"Validation for {args.weights}", flush=True)
+print('Results will be saved in ' + save_path, flush=True)
 
 """
 Load data and define batch data loaders
