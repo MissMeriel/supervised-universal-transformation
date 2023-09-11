@@ -40,7 +40,6 @@ def parse_args():
     parser.add_argument('-w', '--warmstart', type=str, default=None, help='path to warmstart weights')
     parser.add_argument('-s', '--start_epochs', type=int, default=0, help='pretrained model epochs')
     parser.add_argument('-b', '--batch', type=int, default=64, help='batch size')
-    parser.add_argument("--warmstart",  type=str, default=None)
 
     args = parser.parse_args()
     print(f"cmd line args:{args}")    
@@ -83,11 +82,7 @@ def main_pytorch_model():
         model = DAVE2v3(input_shape=input_shape)
     if args.effect != "resdec" and args.effect != "resinc" and args.pretrained_model is not None:
         model = model.load(args.pretrained_model, map_location=device)
-<<<<<<< HEAD
-    elif args.warmstart is not None:
-=======
     if args.warmstart is not None:
->>>>>>> b6ac5b8b6e6ff4380e2c286bbb179fb2999ae9c3
         model = model.load(args.warmstart, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
     robustification = True
