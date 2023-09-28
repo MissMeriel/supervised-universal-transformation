@@ -1,5 +1,5 @@
 import torch
-import torchvision.datasets as datasets
+# import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import time
@@ -33,12 +33,12 @@ def load_uust(topo=None, max_dataset_size=None, transf="fisheye"):
     valkey = None
 
     if topo is None or topo == "general":
-        train_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-T/"
-        valid_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
+        train_data_file_path = "../datasets/supervised-transformation-dataset-alltransforms3FULL-T/"
+        valid_data_file_path = "../datasets/supervised-transformation-dataset-alltransforms3FULL-V/"
 
-    elif topo is "baseline3":
-        train_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
-        valid_data_file_path = "../data/supervised-transformation-dataset-alltransforms3FULL-V/"
+    elif topo == "baseline3":
+        train_data_file_path = "../datasets/supervised-transformation-dataset-alltransforms3FULL-V/"
+        valid_data_file_path = "../datasets/supervised-transformation-dataset-alltransforms3FULL-V/"
 
     if transf == "resdec":
         image_size = (96, 54, 3) # (120, 67, 3)
@@ -63,8 +63,8 @@ def load_rl(topo=None, max_dataset_size=None, transf="fisheye"):
     key = None
     valkey = None
     if topo is None or topo == "general":
-        train_data_file_path = "../data/supervised-transformation-dataset-all/"
-        valid_data_file_path = "../data/supervised-transformation-validation-alltopos/" #"/p/sdbb/supervised-transformation-validation/"
+        train_data_file_path = "../datasets/supervised-transformation-dataset-all/"
+        valid_data_file_path = "../datasets/supervised-transformation-validation-alltopos/" #"/p/sdbb/supervised-transformation-validation/"
         # key = "sample-base"
     elif topo == "windy":
         train_data_file_path = "/p/autosoft/Meriel/RL-datasets/RLtrainwindy-fisheye-max200-0.05eval-1_24-15_42-L4LPFS"
@@ -103,7 +103,7 @@ def load_rl(topo=None, max_dataset_size=None, transf="fisheye"):
 def load_block():
     data_folder_path = os.getcwd()
     data_file_path = data_folder_path + \
-        '/data/randact_traj_length_100_n_trials_1000_n_contexts_1.npy'
+        '/datasets/randact_traj_length_100_n_trials_1000_n_contexts_1.npy'
 
     train = BlockDataset(data_file_path, train=True,
                          transform=transforms.Compose([
@@ -124,7 +124,7 @@ def load_block():
 def load_latent_block():
     data_folder_path = os.getcwd()
     data_file_path = data_folder_path + \
-        '/data/latent_e_indices.npy'
+        '/datasets/latent_e_indices.npy'
 
     train = LatentBlockDataset(data_file_path, train=True,
                          transform=None)
@@ -192,7 +192,7 @@ def readable_timestamp():
 
 
 def save_model_and_results(model, results, hyperparameters, filename):
-    SAVE_MODEL_PATH = os.getcwd() + '/results'
+    # SAVE_MODEL_PATH = os.getcwd() + '/results'
 
     results_to_save = {
         'model': model.state_dict(),

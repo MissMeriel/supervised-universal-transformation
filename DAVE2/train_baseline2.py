@@ -37,8 +37,10 @@ def parse_args():
     parser.add_argument('-r', '--lr', type=float, default=1e-5, help='learning rate')
     parser.add_argument('-e', '--epochs', type=int, default=1000, help='training epochs')
     parser.add_argument('-m', '--pretrained_model', type=str, default=None, help='path to pretrained model')
+    parser.add_argument('-w', '--warmstart', type=str, default=None, help='path to warmstart weights')
     parser.add_argument('-s', '--start_epochs', type=int, default=0, help='pretrained model epochs')
     parser.add_argument('-b', '--batch', type=int, default=64, help='batch size')
+
     args = parser.parse_args()
     print(f"cmd line args:{args}")    
     return args
@@ -80,6 +82,8 @@ def main_pytorch_model():
         model = DAVE2v3(input_shape=input_shape)
     if args.effect != "resdec" and args.effect != "resinc" and args.pretrained_model is not None:
         model = model.load(args.pretrained_model, map_location=device)
+    if args.warmstart is not None:
+        model = model.load(args.warmstart, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
     robustification = True
     noise_level = 15
@@ -99,9 +103,10 @@ def main_pytorch_model():
     timestr = "{}_{}-{}_{}".format(localtime.tm_mon, localtime.tm_mday, localtime.tm_hour, localtime.tm_min)
     
     randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-    newdir = f"./BASELINE2-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
+    newdir = f"./results_baseline2/BASELINE2-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
     if not os.path.exists(newdir):
-        os.mkdir(newdir,  mode=0o777)
+        # os.mkdir(newdir,  mode=0o777)
+        os.makedirs(newdir, exist_ok=True)
         shutil.copyfile(__file__, f"{newdir}/{__file__.split('/')[-1]}", follow_symlinks=False)
         shutil.copyfile("Baseline2DatasetGenerator.py", f"{newdir}/Baseline2DatasetGenerator.py", follow_symlinks=False)
     iteration = f'{model._get_name()}-{input_shape[0]}x{input_shape[1]}-{args.epochs}epoch-{args.batch}batch-{int(dataset.get_total_samples()/1000)}Ksamples'
@@ -166,7 +171,8 @@ def main_pytorch_model():
     time_to_train=time.time() - start_time
     print("Time to train: {}".format(time_to_train), flush=True)
     # save metainformation about training
-    save_metadata(newdir, iteration, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
+    save_metadata(newdir, iteration, epoch, model_name, dataset, args, optimizer, running_loss, logfreq, device, robustification, noise_level, time_to_train)
+
     print(f"{dataset.get_outputs_distribution()=}")
 
 

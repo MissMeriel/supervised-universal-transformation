@@ -1,6 +1,5 @@
 #!/usr/bin/bash
-. /p/sdbb/BBTG/VAE/.venv-bbtg/bin/activate
-
+. ../.venv-sut/bin/activate
 echo "PARALLELIZATION TESTING"; echo
 vqvaes="$(ls -tr results/vqvae_RQ1v2*.pth)"
 basemodel="/p/sdbb/DAVE2-Keras/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"

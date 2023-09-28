@@ -2,7 +2,7 @@
 #SBATCH --time=3-00:00:00
 #SBATCH -A lesslab
 #SBATCH -p gpu
-#SBATCH --mem 512GB
+#SBATCH --mem 32GB
 #SBATCH --gres=gpu:1
 
 . ../.venv-sut/bin/activate
@@ -10,10 +10,9 @@ epochs=500
 transfs=(resdec)
 max_dataset_size="all"
 basemodel="../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
-warmstart="/home/ms7nk/supervised-universal-transformation/vqvae/results/vqvae_UUST_resdec_samplesall_epochs500_52127289_tue_aug_8_23_05_18_2023.pth"
 for transf in ${transfs[@]}; do 
     echo; echo Transformation is $transf; echo max_dataset_size is full dataset
-    filename=UUST_"$transf"_samples"$max_dataset_size"_epochs"$epochs"_"$SLURM_JOB_ID"
+    filename=UUSTwarmstart"$warmstart_epochs"_"$transf"_samples"$max_dataset_size"_epochs"$epochs"_"$SLURM_JOB_ID"
     python main.py --dataset UUST --topo general --transf $transf --epochs $epochs --basemodel $basemodel -save --filename $filename
     # weights=$(ls -t results/*"$filename"*.pth | head -1)
     # echo; echo Running validation for $weights

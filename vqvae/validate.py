@@ -54,9 +54,11 @@ args = parser.parse_args()
 print(f"{args=}", flush=True)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-save_path = "VAL_" +args.weights.replace(".pth", "_" + args.id + "_" + randstr)
+weights_root = args.weights.split("/")[-2] + "_" + args.id + "_" + randstr
+save_path = "results_val/VAL_" + weights_root
 os.makedirs(save_path, exist_ok=True)
-print('Results will be saved in ' + save_path)
+print(f"Validation for {args.weights}", flush=True)
+print('Results will be saved in ' + save_path, flush=True)
 
 """
 Load data and define batch data loaders
@@ -137,7 +139,7 @@ def validate():
         x = sample["image_base"].float().to(device)
         x_transf = sample["image_transf"].float().to(device)
         embedding_loss, x_hat, perplexity = model(x_transf)
-        # print(f"1. {x.shape=} \t{x_transf.shape=} \t{x_hat.shape=}", flush=True)
+        # print(f"{i:03}. {x.shape=} \t{x_transf.shape=} \t{x_hat.shape=}", flush=True)
 
         if x_hat_transform is not None:
             # x_hat_transform = transforms.Resize((x_hat.shape[2], x_hat.shape[3]), antialias=True)

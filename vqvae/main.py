@@ -95,10 +95,12 @@ results = {
     'pred_errors': [],
 }
 if args.basemodel is None:
-    basemodelpath = "/p/sdbb/DAVE2-Keras/DAVE2v3-108x192-82samples-5000epoch-5116933-4_12-23_11-2D8U63/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
+    basemodelpath = "../weights/model-DAVE2v3-randomblurnoise-108x192-lr1e4-5000epoch-64batch-lossMSE-82Ksamples-best152.pt"
 else:
     basemodelpath = args.basemodel
 print(f"{basemodelpath=}")
+prediction_weight = 0.00005
+print(f"WEIGHTING PREDICTION ERROR WITH {prediction_weight}")
 basemodel = torch.load(basemodelpath, map_location=device)
 mseloss = torch.nn.MSELoss()
 basemodel = basemodel.eval()
@@ -125,6 +127,8 @@ def train():
         x_hat_transform = T.Resize((108, 192))
     else:
         x_hat_transform = None
+    lowest_loss = 1
+    best_model_count = 0
     for i in range(args.epochs):
         for batch_idx, (x) in enumerate(training_loader):
             # x = next(iter(training_loader))
@@ -140,7 +144,8 @@ def train():
             # print(f"{x_hat.shape=} {x_base.shape=} {x_hat.shape != x_base.shape}")
             recon_loss = torch.mean((x_hat - x_base)**2) / x_train_var
             pred_loss = prediction_loss(x_hat, x_base, nograd=False)
-            loss = recon_loss + embedding_loss + 0.05 * pred_loss
+            #todo: change .05 to .5 to manage underweighting in comparison to recon loss?
+            loss = recon_loss + embedding_loss + prediction_weight * pred_loss
 
             loss.backward()
             optimizer.step()
@@ -152,20 +157,26 @@ def train():
             results["n_updates"] += 1
 
             if batch_idx % args.log_interval == 0:
-                """
-                save model and print values
-                """
-                if args.save:
-                    hyperparameters = args.__dict__
-                    utils.save_model_and_results(
-                        model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_epoch{i}.pth")
-
-                print('Epoch', i, 'batch', batch_idx, 'Recon Error:',
-                    np.mean(results["recon_errors"][-args.log_interval:]),
+                # save model and print values
+                print('Epoch', i, 'batch', batch_idx, 
                     'Loss', np.mean(results["loss_vals"][-args.log_interval:]),
+                    'Recon Error:', np.mean(results["recon_errors"][-args.log_interval:]),
                     'Perplexity:', np.mean(results["perplexities"][-args.log_interval:]), 
                     'Prediction loss:', np.mean(results["pred_errors"][-args.log_interval:]), 
                     flush=True)
+
+                if np.mean(results["loss_vals"][-args.log_interval:]) < lowest_loss and args.save:
+                    hyperparameters = args.__dict__
+                    utils.save_model_and_results(
+                        model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_bestmodel{i:03}.pth")
+                    print(f"New best model! Loss: {np.mean(results['loss_vals'][-args.log_interval:])}")
+                    best_model_count += 1
+                    lowest_loss = np.mean(results['loss_vals'][-args.log_interval:])
+        
+        if args.save:
+            hyperparameters = args.__dict__
+            utils.save_model_and_results(
+                model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_epoch{i}.pth")
 
 
 if __name__ == "__main__":
