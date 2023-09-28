@@ -1208,26 +1208,25 @@ def get_topo(topo_id):
 
 
 def get_transf(transf_id):
-    if transf_id == "regular" or transf_id is None:
-        img_dims = (240, 135); fov = 51; transf = "None"
+    if transf_id == "small":
+        img_dims = (144, 81); fov = 51; transf = "None"
     elif transf_id == "medium":
         img_dims = (192, 108); fov = 51; transf = "None"
+    elif transf_id == "resdec":
+        img_dims = (96, 54); fov = 51; transf = "resdec"
+    elif transf_id == "resinc":
+        img_dims = (480,270); fov = 51; transf = "resinc"
     elif transf_id == "mediumfisheye":
         img_dims = (192, 108); fov = 75; transf = "fisheye"
     elif transf_id == "mediumdepth":
         img_dims = (192, 108); fov = 51; transf = "depth"
-    elif transf_id == "small":
-        img_dims = (144, 81); fov = 51; transf = "None"
-    elif "fisheye" in transf_id:
+    elif transf_id == "regular" or transf_id is None:
+        img_dims = (240, 135); fov = 51; transf = "None"
+    elif transf_id == "regularfisheye":
         img_dims = (240,135); fov=75; transf = "fisheye"
-    elif transf_id == "resdec":
-        img_dims = (96, 54); fov = 51; transf = "resdec"
-        # img_dims = (54, 96); fov = 51; transf = "resdec"
     elif transf_id == "resdec2":
         img_dims = (120, 67); fov = 51; transf = "None"
-    elif transf_id == "resinc":
-        img_dims = (480,270); fov = 51; transf = "resinc"
-    elif transf_id == "depth":
+    elif transf_id == "regulardepth":
         img_dims = (240, 135); fov = 51; transf = "depth"
     return img_dims, fov, transf
 
@@ -1329,8 +1328,6 @@ def diff_damage(damage, damage_prev):
 
 def ms_to_kph(wheelspeed):
     return wheelspeed * 3.6
-
-
 
 
 '''PLOTTING RESULTS'''

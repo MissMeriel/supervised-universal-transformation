@@ -198,7 +198,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     transform = Compose([ToTensor()])
     distance_to_cuton = 100
     last_timestamp = start_time
-    while kph < 30 or distance_to_cuton > 4:
+    while kph < 30 or distance_to_cuton > 3.5:
         vehicle.update_vehicle()
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
@@ -294,7 +294,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster, model_name, hash="000", detransf
         from DAVE2pytorch import DAVE2PytorchModel, DAVE2v3
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-    print(type(model))
+    print(type(model), model.input_shape)
     vqvae_name = None
     vqvae = None
     baseline_id = "baseline3"
@@ -306,9 +306,9 @@ def main(topo_id, spawn_pos, rot_quat, cluster, model_name, hash="000", detransf
                                           beamnginstance='F:/BeamNG.researchINSTANCE3', port=64356, topo_id=topo_id)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
-
+    fpid = model_name.split("/")[-1].replace('.pth', '')
     # filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}-{transf_id}-{hash}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
-    filepathroot = f"simresults/{baseline_id}-{transf_id}-{hash}/{baseline_id}-{transf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
+    filepathroot = f"simresults/B3-REVISEDCUTON-{baseline_id}/{fpid}-{hash}/{baseline_id}-{transf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
 
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
@@ -336,6 +336,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster, model_name, hash="000", detransf
         "default_scenario": default_scenario,
         "road_id": road_id,
         "topo_id": topo_id,
+        "cluster": cluster,
         "transf_id": transf_id,
         "vqvae_name": vqvae_name,
         "model_name": model_name,
@@ -375,13 +376,18 @@ def summarize_results(all_results):
 
 def get_model_name(transf_id):
     if transf_id == "mediumfisheye":
-        return "../weights/baseline3/baseline3-fisheye-model-DAVE2v3-108x192-2296epoch-64batch-50Ksamples-epoch2180-best098.pt"
+        # return "../weights/baseline3/baseline3-fisheye-model-DAVE2v3-108x192-2296epoch-64batch-50Ksamples-epoch2180-best098.pt"
+        return "../weights/baseline3/portal409517_baseline3_Tset50K_fisheye-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch2031-best071.pt" #RETRAINED
     elif transf_id == "mediumdepth":
         return "../weights/baseline3/baseline3-depth-model-DAVE2v3-108x192-2085epoch-64batch-50Ksamples-epoch1706-best013.pt"
     elif transf_id == "resinc":
-        return "../weights/baseline3/model-baseline3-resinc-ONLY4523EPOCHS-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4400-best149.pt"
+        # return "../weights/baseline3/model-baseline3-resinc-ONLY4523EPOCHS-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4400-best149.pt"
+        # return "../weights/baseline3/portal432639-baseline3-resinc-Tset-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4844-best073.pt" # RETRAINED
+        return "../weights/baseline3/resinc-test-model-DAVE2v3-270x480-5000epoch-64batch-10Ksamples-epoch001-best002.pt" # TEST
     elif transf_id == "resdec":
-        return "../weights/baseline3/baseline3-resdec-model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
+        # return "../weights/baseline3/baseline3-resdec-model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
+        return "../weights/baseline3-10K/portal644260_resdec_Tset-54x96-5000epoch-64batch-10Ksamples-epoch4826-best115.pt"
+
 
 def parse_args():
     parser = argparse.ArgumentParser(prog='ProgramName', description='What the program does',
@@ -390,6 +396,8 @@ def parse_args():
     args = parser.parse_args()
     print(f"cmd line args:{args}")
     return args
+
+
 def update_rot(config_topo_id, rot_quat):
     if config_topo_id == "extra_utahlong":
         # rot_quat = rot_quat * -1
@@ -441,20 +449,54 @@ def line_follower(front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    df = pd.read_csv("./config-segments_inuse.csv")  # swapped xy, reversed x - math.pi
+    df = pd.read_csv("./config-segments_inuse-revised.csv")  # swapped xy, reversed x - math.pi
     hash = randstr()
     df = df.reset_index()  # make sure indexes pair with number of rows
     random.seed(1703)
     args = parse_args()
-    for index, row in df.iterrows():
-        config_topo_id = row["TOPOID"]
-        spawn_pos = parse_list_from_string(row["SPAWN"])
-        rot_quat = parse_list_from_string(row["ROT_QUAT"])
-        cluster = row["SEGNUM"]
-        cutoff = parse_list_from_string(row["END"])
-        rot_quat = update_rot(config_topo_id, rot_quat)
-        model_name = get_model_name(args.effect)
-        cuton_pt = parse_list_from_string(row["START"])
-        cutoff_pt = parse_list_from_string(row["CUTOFF"])
-        results = main(config_topo_id, spawn_pos, rot_quat, cluster, model_name, hash=hash, transf_id=args.effect, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
-        exit(0)
+    vqvaes = [
+              # "../weights/baseline3-10K/CHECKED-portal628217-depth-10K-DAVE2v3-108x192-75Ksamples-epoch1022-best032.pt",
+              # "../weights/baseline3-10K/portal644260_resdec_Tset-54x96-5000epoch-64batch-10Ksamples-epoch4826-best115.pt",
+              # "../weights/baseline3-50K/portal409517_baseline3_Tset50K_fisheye-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch2031-best071.pt",
+              # "../weights/baseline3-50K/portal432639-baseline3-resinc-Tset-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4844-best073.pt", # error on
+              # 2023-09-24 20:32:43,460 ERROR    Uncaught exception:
+              # Traceback (most recent call last):
+              #   File "C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/simulation/take-a-lap-test-baseline3-withconfig.py", line 477, in <module>
+              #     results = main(config_topo_id, spawn_pos, rot_quat, cluster, model_name, hash=hash, transf_id=effects[i], cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
+              #   File "C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/simulation/take-a-lap-test-baseline3-withconfig.py", line 317, in main
+              #     results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg,
+              #   File "C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/simulation/take-a-lap-test-baseline3-withconfig.py", line 237, in run_scenario
+              #     prediction = model(processed_img.type(torch.float32))
+              #   File "C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\venv-sutransf\lib\site-packages\torch\nn\modules\module.py", line 1051, in _call_impl
+              #     return forward_call(*input, **kwargs)
+              #   File "C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\simulation\DAVE2pytorch.py", line 253, in forward
+              #     x = self.lin1(x)
+              #   File "C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\venv-sutransf\lib\site-packages\torch\nn\modules\module.py", line 1051, in _call_impl
+              #     return forward_call(*input, **kwargs)
+              #   File "C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\venv-sutransf\lib\site-packages\torch\nn\modules\linear.py", line 96, in forward
+              #     return F.linear(input, self.weight, self.bias)
+              #   File "C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\venv-sutransf\lib\site-packages\torch\nn\functional.py", line 1847, in linear
+              #     return torch._C._nn.linear(input, weight, bias)
+              # RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x384 and 128x500)
+
+              # "../weights/baseline3-50K/portal522804-resdec-50K-DAVE2v3-54x96-epoch2509-best063.pt",
+
+                #TODOS 9/26:
+                "../weights/baseline3-75K/portal628179-depth-75K-DAVE2v3-108x192-5000epoch-epoch1764-best038.pt",
+                # "../weights/baseline3-10K/CHECKED-portal628217-depth-10K-DAVE2v3-108x192-75Ksamples-epoch1022-best032.pt",
+                # "../weights/baseline3-50K/portal442655-baseline3-depth-50K-Tset-DAVE2v3-108x192-5000epoch-64batch-epoch4572-best073.pt",
+              ]
+    effects = ["mediumdepth", "resdec", "fisheye", "resinc", "resdec"]
+    for i in range(len(vqvaes)):
+        for index, row in df.iterrows():
+            config_topo_id = row["TOPOID"]
+            spawn_pos = parse_list_from_string(row["SPAWN"])
+            rot_quat = parse_list_from_string(row["ROT_QUAT"])
+            cluster = row["SEGNUM"]
+            cutoff = parse_list_from_string(row["END"])
+            rot_quat = update_rot(config_topo_id, rot_quat)
+            model_name = vqvaes[i] #get_model_name(args.effect)
+            cuton_pt = parse_list_from_string(row["START"])
+            cutoff_pt = parse_list_from_string(row["CUTOFF"])
+            # results = main(config_topo_id, spawn_pos, rot_quat, cluster, model_name, hash=hash, transf_id=args.effect, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
+            results = main(config_topo_id, spawn_pos, rot_quat, cluster, model_name, hash=hash, transf_id=effects[i], cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)

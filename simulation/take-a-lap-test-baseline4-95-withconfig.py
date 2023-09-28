@@ -380,6 +380,7 @@ def main(topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster="000", hash="0
         "default_scenario": default_scenario,
         "road_id": road_id,
         "topo_id": topo_id,
+        "cluster": cluster,
         "transf_id": transf_id,
         "vqvae_name": vqvae_name,
         "vqvae_id": vqvae_id,

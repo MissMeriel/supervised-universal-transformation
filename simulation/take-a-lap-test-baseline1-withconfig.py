@@ -312,10 +312,10 @@ def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=No
     vehicle, bng, scenario = setup_beamng(default_scenario, spawn_pos, rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
                                           beamnginstance='F:/BeamNG.researchINSTANCE2', port=64416) # port must be 0-65535
     distances, deviations, trajectories, runtimes = [], [], [], []
-    runs = 5
+    runs = 25
 
     # filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{model_name.split('/')[-1]}-{detransf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
-    filepathroot = f"simresults/{baseline_id}-{detransf_id}-{hash}/{baseline_id}-{detransf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
+    filepathroot = f"simresults/REVISEDCUTONS-{baseline_id}-{detransf_id}-{hash}/{baseline_id}-{detransf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
@@ -350,6 +350,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=No
         "default_scenario": default_scenario,
         "road_id": road_id,
         "topo_id": topo_id,
+        "cluster": cluster,
         "transf_id": transf_id,
         "vqvae_name": vqvae_name,
         "model_name": model_name,
@@ -401,9 +402,7 @@ def line_follower(front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None
     global centerline_interpolated
     distance_from_centerline = dist_from_line(centerline_interpolated, front)
     coming_index = 3 #7
-    if topo == "extra_utahlong" or topo == "extra_jungledrift_road_d" or topo=="extra_dock" or topo == "extra_jungledrift_road_d" or topo == "Rturn_servicecutthru" or topo == "Lturnpasswarehouse" or topo == "extra_westunderpasses":
-        coming_index = 3
-    if topo == "extra_jungledrift_road_d":
+    if topo == "extra_jungledrift_road_d" or topo == "extra_windingtrack":
         coming_index = 2
     i =  np.nanargmin(distance_from_centerline)
     next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
@@ -448,7 +447,7 @@ if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
     # detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
-    df = pd.read_csv("./config-segments_inuse.csv")  # swapped xy, reversed x - math.pi
+    df = pd.read_csv("./config-segments_inuse-revised.csv")  # swapped xy, reversed x - math.pi
     hash = randstr()
     df = df.reset_index()  # make sure indexes pair with number of rows
     random.seed(1703)
@@ -464,4 +463,3 @@ if __name__ == '__main__':
         cuton_pt = parse_list_from_string(row["START"])
         cutoff_pt = parse_list_from_string(row["CUTOFF"])
         results = main(config_topo_id, spawn_pos, rot_quat, cluster=cluster, hash=hash, detransf_id=args.effect, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
-        exit(0)
