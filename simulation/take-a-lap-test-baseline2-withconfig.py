@@ -169,7 +169,7 @@ def setup_beamng(default_scenario, spawn_pos, rot_quat, road_id, reverse=False, 
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
                  transf=None, detransf=None, topo=None):
-    global base_filename
+    global base_filename, centerline_interpolated
     global integral, prev_error, setpoint
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
     cutoff_point = spawn['pos']
@@ -201,7 +201,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
         # vehicle.control(throttle=1., steering=0., brake=0.0)
-        steering = line_follower(vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo)
+        steering = line_follower(centerline_interpolated, vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo)
         vehicle.control(throttle=0.55, steering=steering, brake=0.0)
         bng.step(1, wait=True)
     while damage <= 1:
@@ -388,39 +388,6 @@ def parse_args():
     print(f"cmd line args:{args}")
     return args
 
-
-def line_follower(front, pos, rot_quat, topo=None):
-    global centerline_interpolated
-    distance_from_centerline = dist_from_line(centerline_interpolated, front)
-    dist = min(distance_from_centerline)
-    coming_index = 3
-    i = np.where(distance_from_centerline == dist)[0][0]
-    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
-    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
-    # theta = angle_between(vehicle.state, next_point)
-    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
-    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
-    inner_angle = vehicle_angle - waypoint_angle
-    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
-    if topo == "extra_windingtrack":
-        theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle))
-    elif topo == "Rturn_servicecutthru" or topo == "extra_westunderpasses":
-        theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle)) / (2 * math.pi)
-    action = theta / (2 * math.pi)
-    return action
-
-
-def update_rot(config_topo_id, rot_quat):
-    if config_topo_id == "extra_utahlong":
-        # rot_quat = rot_quat * -1
-        rot_quat = turn_X_degrees(rot_quat, degrees=150)
-    elif config_topo_id == "Rturncommercialunderpass":
-        rot_quat = turn_X_degrees(rot_quat, degrees=90)
-    elif config_topo_id == "Lturnpasswarehouse":
-        rot_quat = turn_X_degrees(rot_quat, degrees=180)
-    elif config_topo_id == "extra_westunderpasses":
-        rot_quat =  turn_X_degrees(rot_quat, degrees=180)
-    return rot_quat
 
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True

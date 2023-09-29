@@ -180,34 +180,10 @@ def setup_beamng(default_scenario, spawn_pos, rot_quat, road_id, reverse=False, 
     return vehicle, bng, scenario
 
 
-# def line_follower(front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None):
-#     global centerline_interpolated
-#     distance_from_centerline = dist_from_line(centerline_interpolated, front)
-#     coming_index = 7
-#     if topo == "extra_utahlong":
-#         coming_index = 3
-#     i =  np.nanargmin(distance_from_centerline)
-#     next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
-#     # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
-#     # theta = angle_between(vehicle.state, next_point)
-#     vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
-#     waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
-#     inner_angle = vehicle_angle - waypoint_angle
-#     theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
-#     if topo == "Rturn_servicecutthru" or topo == "extra_westunderpasses":
-#         theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle)) / (2 * math.pi)
-#     # print(f"theta(deg)={math.degrees(theta):.1f}")
-#     action = theta / (math.pi)
-#     # if vehicle_state is not None:
-#     #     road_seg = nearest_seg(centerline, front, roadleft, roadright)
-#     #     plot_intersection_with_CV2(vehicle_state, road_seg, next_point, bbox, action)
-#     return action
-
-
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
                  transf=None, detransf=None, topo=None, cuton_pt=None, cutoff_pt=None):
-    global base_filename
+    global base_filename, centerline_interpolated
     global integral, prev_error, setpoint
     orig_model_image_size = (108, 192)
     if cutoff_pt is None:
@@ -238,7 +214,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
         dt = sensors['timer']['time'] - last_timestamp
-        steering = line_follower(vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo, vehicle.state, vehicle.get_bbox())
+        steering = line_follower(centerline_interpolated, vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo, vehicle.state, vehicle.get_bbox())
         throttle = throttle_PID(kph, dt, steering=steering)
         vehicle.control(throttle=throttle, steering=steering, brake=0.0)
         last_timestamp = sensors['timer']['time']
@@ -481,34 +457,6 @@ def update_rot(config_topo_id, rot_quat):
     # elif config_topo_id == "Rturn_servicecutthru":
     #     rot_quat = turn_X_degrees(rot_quat, degrees=-90 )
     return rot_quat
-
-def line_follower(front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None):
-    global centerline_interpolated
-    distance_from_centerline = dist_from_line(centerline_interpolated, front)
-    coming_index = 7
-    if topo == "extra_utahlong" or topo == "extra_jungledrift_road_d" or topo=="extra_dock" or topo == "extra_jungledrift_road_d" or topo == "Rturn_servicecutthru" or topo == "Lturnpasswarehouse" or topo == "extra_westunderpasses":
-        coming_index = 3
-    if topo == "extra_jungledrift_road_d":
-        coming_index = 2
-    i =  np.nanargmin(distance_from_centerline)
-    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
-    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
-    # theta = angle_between(vehicle.state, next_point)
-    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
-    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
-    inner_angle = vehicle_angle - waypoint_angle
-    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
-    # if topo == "Rturn_servicecutthru" or topo == "extra_westunderpasses":
-    # if topo == "extra_westunderpasses":
-    #     theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle)) / (2 * math.pi)
-    # print(f"theta(deg)={math.degrees(theta):.1f}")
-    action = theta / (math.pi)
-    if topo == "extra_jungledrift_road_d":
-        action = theta / (math.pi/2)
-    # if vehicle_state is not None:
-    #     road_seg = nearest_seg(centerline, front, roadleft, roadright)
-    #     plot_intersection_with_CV2(vehicle_state, road_seg, next_point, bbox, action)
-    return action
 
 
 if __name__ == '__main__':

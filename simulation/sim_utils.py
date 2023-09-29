@@ -1208,9 +1208,7 @@ def get_topo(topo_id):
 
 
 def get_transf(transf_id):
-    if transf_id == "small":
-        img_dims = (144, 81); fov = 51; transf = "None"
-    elif transf_id == "medium":
+    if transf_id == "medium":
         img_dims = (192, 108); fov = 51; transf = "None"
     elif transf_id == "resdec":
         img_dims = (96, 54); fov = 51; transf = "resdec"
@@ -1220,33 +1218,8 @@ def get_transf(transf_id):
         img_dims = (192, 108); fov = 75; transf = "fisheye"
     elif transf_id == "mediumdepth":
         img_dims = (192, 108); fov = 51; transf = "depth"
-    elif transf_id == "regular" or transf_id is None:
-        img_dims = (240, 135); fov = 51; transf = "None"
-    elif transf_id == "regularfisheye":
-        img_dims = (240,135); fov=75; transf = "fisheye"
-    elif transf_id == "resdec2":
-        img_dims = (120, 67); fov = 51; transf = "None"
-    elif transf_id == "regulardepth":
-        img_dims = (240, 135); fov = 51; transf = "depth"
     return img_dims, fov, transf
 
-# calc min dist between xy point and polyline
-def lineseg_dists0(p,a,b):
-    # calc denom
-    d_ba = b - a
-    sq_d_ba = np.square(d_ba)
-    denom = np.sqrt(sq_d_ba[:,0] + sq_d_ba[:,1])
-    # calc numerator
-    d_xba = b[:,0] - a[:,0]
-    d_yap = a[:,1] - p[1]
-    d_xap = a[:,0] - p[0]
-    d_yba = b[:,1] - a[:,1]
-    numerator = np.multiply(d_xba, d_yap) - np.multiply(d_xap, d_yba)
-    # numerator = np.linalg.norm(numerator)
-    # numerator = np.sqrt(np.dot(numerator))
-    dists = np.absolute(numerator / denom)
-    # return np.nanmin(dists)
-    return dists
 
 @ignore_warnings
 def lineseg_dists(p, a, b):
@@ -1290,7 +1263,6 @@ def lineseg_dists3(p,a,b):
 #return distance between two any-dimenisonal points
 def distance(a, b):
     sqr = sum([math.pow(ai-bi, 2) for ai, bi in zip(a,b)])
-    # return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
     return math.sqrt(sqr)
 
 
@@ -1334,11 +1306,6 @@ def ms_to_kph(wheelspeed):
 ''' takes in 3D array of sequential [x,y] '''
 def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflation_pattern, savefile="trajectories"):
     fig, ax = plt.subplots()
-    # x, y = [], []
-    # for point in centerline:
-    #     x.append(point[0])
-    #     y.append(point[1])
-    # plt.plot(x, y, "k-")
     plt.plot(np.array(centerline)[:,0], np.array(centerline)[:,1], "k-")
     x, y = [], []
     for point in roadleft:
@@ -1374,6 +1341,37 @@ def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflati
     # plt.show()
     # plt.pause(0.1)
 
+
+def update_rot(config_topo_id, rot_quat):
+    if config_topo_id == "extra_utahlong":
+        rot_quat = turn_X_degrees(rot_quat, degrees=150)
+    elif config_topo_id == "Rturncommercialunderpass":
+        rot_quat = turn_X_degrees(rot_quat, degrees=90)
+    return rot_quat
+
+def line_follower(centerline_interpolated, front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None):
+    distance_from_centerline = dist_from_line(centerline_interpolated, front)
+    coming_index = 3 #7
+    if topo == "extra_jungledrift_road_d" or topo == "extra_windingtrack":
+        coming_index = 2
+    i =  np.nanargmin(distance_from_centerline)
+    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
+    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
+    # theta = angle_between(vehicle.state, next_point)
+    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
+    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
+    inner_angle = vehicle_angle - waypoint_angle
+    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
+    action = theta / (math.pi)
+    if topo == "extra_jungledrift_road_d":
+        action = theta / (math.pi/2)
+    # if vehicle_state is not None:
+    #     road_seg = nearest_seg(centerline, front, roadleft, roadright)
+    #     plot_intersection_with_CV2(vehicle_state, road_seg, next_point, bbox, action)
+    return action
+
+
+
 '''PLOT DRIVING ENVIRONMENT'''
 
 def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False, sp=None):
@@ -1394,14 +1392,8 @@ def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False, s
         if (s < 200):
             continue
         for edge in road_edges:
-            # if edge['middle'][0] < -250 or edge['middle'][0] > 50 or edge['middle'][1] < 0 or edge['middle'][1] > 300:
-            # if edge['middle'][1] < -50 or edge['middle'][1] > 250:
-            #     add = False
-            #     break
-            # if add:
             x_temp.append(edge['middle'][0])
             y_temp.append(edge['middle'][1])
-        # if add:
         symb = '{}{}'.format(random.choice(colors), random.choice(symbs))
         plt.plot(x_temp, y_temp, symb, label=road)
         selectedroads.append(road)
@@ -1423,6 +1415,7 @@ def parse_list_from_string(l):
     l = l[1:-2]
     l = [float(ele) for ele in l.split()]
     return l
+
 
 def nearest_seg(road, pos, roadleft, roadright):
     road_seg = {}

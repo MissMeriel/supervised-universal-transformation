@@ -171,8 +171,8 @@ def setup_beamng(default_scenario, spawn_pos, rot_quat,  road_id, reverse=False,
 
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
-                 transf=None, detransf=None, topo=None, cuton_pt=None, cutoff_pt=None):
-    global base_filename
+                 detransf=None, topo=None, cuton_pt=None, cutoff_pt=None):
+    global base_filename, centerline_interpolated
     global integral, prev_error, setpoint
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
     if cutoff_pt is None:
@@ -186,7 +186,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
-    image.save(f"./start-{topo}-{detransf}.jpg")
+    # image.save(f"./start-{topo}-{detransf}.jpg")
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
@@ -205,7 +205,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
         dt = sensors['timer']['time'] - last_timestamp
-        steering = line_follower(vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo, vehicle.state, vehicle.get_bbox())
+        steering = line_follower(centerline_interpolated, vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo, vehicle.state, vehicle.get_bbox())
         throttle = throttle_PID(kph, dt, steering=steering)
         vehicle.control(throttle=throttle, steering=steering, brake=0.0)
         last_timestamp = sensors['timer']['time']
@@ -220,19 +220,16 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         image = sensors['front_cam']['colour'].convert('RGB')
         image_seg = sensors['front_cam']['annotation'].convert('RGB')
         image_depth = sensors['front_cam']['depth'].convert('RGB')
-        if transf is not None:
-            if "depth" in transf:
-                image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
 
-        if detransf is not None:
-            if "res" in detransf:
-                image = image.resize((192, 108))
-                # image = cv2.resize(np.array(image), (135,240))
-            elif "fisheye" in detransf:
-                image = detransformations.defisheye(np.array(image))
-            elif "depth" in detransf:
-                image_shallowdof = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-                image = detransformations.deblur(np.array(image_shallowdof))
+        if "res" in detransf:
+            image = image.resize((192, 108))
+            # image = cv2.resize(np.array(image), (135,240))
+        elif "fisheye" in detransf:
+            image = detransformations.defisheye(np.array(image))
+        elif "depth" in detransf:
+            image_shallowdof = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
+            image = detransformations.deblur(np.array(image_shallowdof))
+
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
         total_imgs += 1
@@ -295,12 +292,10 @@ def zero_globals():
     roadright = []
 
 
-# def main(topo_id, spawn_pos, rot_quat,  hash="000", detransf_id=None):
 def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=None, cuton_pt=None, cutoff_pt=None):
     global base_filename
     zero_globals()
     model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
-    transf_id = None
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
     vqvae_name = None
@@ -312,26 +307,23 @@ def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=No
     vehicle, bng, scenario = setup_beamng(default_scenario, spawn_pos, rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
                                           beamnginstance='F:/BeamNG.researchINSTANCE2', port=64416) # port must be 0-65535
     distances, deviations, trajectories, runtimes = [], [], [], []
-    runs = 25
+    runs = 5
 
-    # filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{model_name.split('/')[-1]}-{detransf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
-    filepathroot = f"simresults/REVISEDCUTONS-{baseline_id}-{detransf_id}-{hash}/{baseline_id}-{detransf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
+    filepathroot = f"simresults/sanitycheckREVISEDCUTONS-{baseline_id}-{detransf_id}-{hash}/{baseline_id}-{detransf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     point_nearest = get_nearest_point(centerline, spawn_pos)
     print(f"{point_nearest=}")
-    if topo_id == "extra_windingtrack" or topo_id == "Rturncommercialunderpass": # or topo_id == "extra_jungledrift_road_d": # or topo_id == "Rturn_servicecutthru": # or topo_id == "Rturn_industrialrc_asphaltc":
+    if topo_id == "extra_windingtrack" or topo_id == "Rturncommercialunderpass":
         centerline.reverse()
         centerline_interpolated.reverse()
     distances, deviations, deviations_seq, trajectories, runtimes = [], [], [], [], []
 
     for i in range(runs):
-        # results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id)
         results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg,
-                               vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
+                               vqvae=vqvae, detransf=detransf_id, topo=topo_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
         results['distance'] = get_distance_traveled(results['traj'])
-        # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
         print(f"\n{baseline_id} {topo_id} {detransf_id} {img_dims=} RUN {i}:"
               f"\n\tdistance={results['distance']:1f}"
               f"\n\tavg dist from center={results['deviation']['mean']:3f}")
@@ -351,7 +343,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=No
         "road_id": road_id,
         "topo_id": topo_id,
         "cluster": cluster,
-        "transf_id": transf_id,
+        "detransf_id": detransf_id,
         "vqvae_name": vqvae_name,
         "model_name": model_name,
         "runtimes": runtimes
@@ -369,10 +361,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=No
           f"\n\t{vqvae_name=}"
           f"\n\t{model_name=}")
     id = f"basemodelalone-{baseline_id}"
-    try:
-        plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3 ", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
-    except:
-        plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
+    plot_deviation(trajectories, centerline, roadleft, roadright, baseline_id, filepathroot, savefile=f"{topo_id}-{detransf_id}-{id}")
     bng.close()
     return summary
 
@@ -397,51 +386,6 @@ def parse_args():
     print(f"cmd line args:{args}")
     return args
 
-
-def line_follower(front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None):
-    global centerline_interpolated
-    distance_from_centerline = dist_from_line(centerline_interpolated, front)
-    coming_index = 3 #7
-    if topo == "extra_jungledrift_road_d" or topo == "extra_windingtrack":
-        coming_index = 2
-    i =  np.nanargmin(distance_from_centerline)
-    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
-    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
-    # theta = angle_between(vehicle.state, next_point)
-    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
-    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
-    inner_angle = vehicle_angle - waypoint_angle
-    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
-    action = theta / (math.pi)
-    if topo == "extra_jungledrift_road_d":
-        action = theta / (math.pi/2)
-    # if vehicle_state is not None:
-    #     road_seg = nearest_seg(centerline, front, roadleft, roadright)
-    #     plot_intersection_with_CV2(vehicle_state, road_seg, next_point, bbox, action)
-    return action
-
-
-def update_rot(config_topo_id, rot_quat):
-    if config_topo_id == "extra_utahlong":
-        # rot_quat = rot_quat * -1
-        rot_quat = turn_X_degrees(rot_quat, degrees=150)
-    elif config_topo_id == "Rturncommercialunderpass":
-        rot_quat = turn_X_degrees(rot_quat, degrees=90)
-    # elif config_topo_id == "Lturnpasswarehouse":
-    #     rot_quat = turn_X_degrees(rot_quat, degrees=180)
-    elif config_topo_id == "extra_westunderpasses":
-        rot_quat =  turn_X_degrees(rot_quat, degrees=180)
-    # elif config_topo_id == "extrawinding_industrial7978":
-    #     rot_quat = turn_X_degrees(rot_quat, degrees=-70)
-    # elif config_topo_id == "extra_dock":
-    #     rot_quat = turn_X_degrees(rot_quat, degrees=110)
-    # elif config_topo_id == "Rturn_industrialrc_asphaltc":
-    #     rot_quat = turn_X_degrees(rot_quat, degrees=-90)
-    # elif config_topo_id == "extra_jungledrift_road_e":
-    #     rot_quat = turn_X_degrees(rot_quat, degrees=-110 )
-    # elif config_topo_id == "extra_jungledrift_road_d":
-    #     rot_quat = turn_X_degrees(rot_quat, degrees=180 )
-    return rot_quat
 
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
