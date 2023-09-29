@@ -392,7 +392,7 @@ def parse_args():
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    df = pd.read_csv("./config-segments_K6U1FE.csv")  # swapped xy, reversed x - math.pi
+    df = pd.read_csv("./config-segments_inuse-revised.csv")  # swapped xy, reversed x - math.pi
     hash = randstr()
     df = df.reset_index()  # make sure indexes pair with number of rows
     random.seed(1703)
@@ -403,5 +403,4 @@ if __name__ == '__main__':
         rot_quat = parse_list_from_string(row["ROT_QUAT"])
         cluster = row["SEGNUM"]
         cutoff = parse_list_from_string(row["END"])
-        rot_quat = update_rot(config_topo_id, rot_quat)
         results = main(config_topo_id, spawn_pos, rot_quat, cluster, cutoff, hash=hash, transf_id=args.effect)

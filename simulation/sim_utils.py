@@ -1343,9 +1343,7 @@ def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflati
 
 
 def update_rot(config_topo_id, rot_quat):
-    if config_topo_id == "extra_utahlong":
-        rot_quat = turn_X_degrees(rot_quat, degrees=150)
-    elif config_topo_id == "Rturncommercialunderpass":
+    if config_topo_id == "Rturncommercialunderpass":
         rot_quat = turn_X_degrees(rot_quat, degrees=90)
     return rot_quat
 

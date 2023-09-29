@@ -426,10 +426,7 @@ def get_vqvae_name(transf_id, count=10):
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # df = pd.read_csv("./config-segments_YCTKSP.csv") # reversed y + math.pi
-    # df = pd.read_csv("./config-segments_QHWJXO.csv")  # reversed y - math.pi
-    df = pd.read_csv("./config-segments_inuse.csv")  # swapped xy, reversed x - math.pi
-    # df = pd.read_csv("./config-segments_QXQETX.csv")  # swapped xy, reversed x - math.pi
+    df = pd.read_csv("./config-segments_inuse-revised.csv")
     # detransf_ids = ["mediumdepth", "mediumfisheye","resinc", "resdec", ]
     # hashes = [randstr() for t in detransf_ids]
     hash = randstr()
@@ -443,19 +440,13 @@ if __name__ == '__main__':
     detransf_id = args.effect
 
     for index, row in df.iterrows():
-        # for count in counts:
-        # vqvae_name = get_vqvae_name(detransf_id, count=count)
-        # hash = hashes[i]
         config_topo_id = row["TOPOID"]
         spawn_pos = parse_list_from_string(row["SPAWN"])
         rot_quat = parse_list_from_string(row["ROT_QUAT"])
         cluster = row["SEGNUM"]
         cutoff = parse_list_from_string(row["END"])
-        rot_quat = update_rot(config_topo_id, rot_quat)
-        print(f"updated {rot_quat=}")
         cuton_pt = parse_list_from_string(row["START"])
         cutoff_pt = parse_list_from_string(row["CUTOFF"])
         results = main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
-        # exit(0)
 
 # NOTE: BEAMNG X AND Y ARE TRANSPOSED AND X AXIS IS FLIPPED (NEGATED)
