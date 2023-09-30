@@ -402,7 +402,6 @@ if __name__ == '__main__':
         rot_quat = parse_list_from_string(row["ROT_QUAT"])
         cluster = row["SEGNUM"]
         cutoff = parse_list_from_string(row["END"])
-        print(f"{config_topo_id} updated {rot_quat=}")
         cuton_pt = parse_list_from_string(row["START"])
         cutoff_pt = parse_list_from_string(row["CUTOFF"])
         results = main(config_topo_id, spawn_pos, rot_quat, cluster=cluster, hash=hash, detransf_id=args.effect, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
