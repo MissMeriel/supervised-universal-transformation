@@ -5,11 +5,10 @@
 #SBATCH --gres=gpu:1
 
 . ../.venv-sut/bin/activate
-pip install scikit-learn
+basemodel="../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
 epochs=500
 max_dataset_sizes=(10000)
 transfs=(fisheye)
-basemodel="./weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
 for transf in ${transfs[@]}; do 
     for max_dataset_size in ${max_dataset_sizes[@]}; do
         echo; echo Transformation is $transf; echo max_dataset_size is $max_dataset_size
