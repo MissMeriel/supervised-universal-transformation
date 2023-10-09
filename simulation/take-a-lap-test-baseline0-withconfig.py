@@ -11,11 +11,13 @@ import copy
 from scipy import interpolate
 import torch
 from torchvision.transforms import Compose, ToPILImage, ToTensor
-
+import argparse
+import pandas as pd
 
 # from ast import literal_eval
 # from wand.image import Image as WandImage
 import DAVE2pytorch
+from DAVE2pytorch import DAVE2PytorchModel, DAVE2v3
 from beamngpy import BeamNGpy, Scenario, Vehicle, setup_logging, StaticObject, ScenarioObject
 from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
 from sim_utils import *
@@ -131,40 +133,40 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
     return line, bng
 
 
-def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,135), fov=51, vehicle_model='etk800', default_color="green", steps_per_sec=15,
-                 beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE4', port=64956):
+def setup_beamng(default_scenario, spawn_pos, rot_quat, road_id, reverse=False, seg=1, img_dims=(240,135), fov=51, vehicle_model='etk800', default_color="green", steps_per_sec=15,
+                 beamnginstance='F:/BeamNG.researchINSTANCE4', port=64956):
     global base_filename
 
     random.seed(1703)
     setup_logging()
     print(road_id)
-    beamng = BeamNGpy('localhost', port, home='C:/Users/Meriel/Documents/BeamNG.research.v1.7.0.1', user=beamnginstance)
+    beamng = BeamNGpy('localhost', port, home='F:/BeamNG.research.v1.7.0.1', user=beamnginstance)
     scenario = Scenario(default_scenario, 'research_test')
     vehicle = Vehicle('ego_vehicle', model=vehicle_model, licence='EGO', color=default_color)
     vehicle = setup_sensors(vehicle, img_dims, fov=fov)
-    spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
-    print(default_scenario, road_id, seg, spawn)
-    scenario.add_vehicle(vehicle, pos=spawn['pos'], rot=None, rot_quat=spawn['rot_quat'])
+
+    print(default_scenario, road_id, seg, spawn_pos, rot_quat)
+    scenario.add_vehicle(vehicle, pos=spawn_pos, rot=None, rot_quat=rot_quat)
     try:
         add_barriers(scenario, default_scenario)
     except FileNotFoundError as e:
         print(e)
-    print(road_id)
     scenario.make(beamng)
     bng = beamng.open(launch=True)
     bng.set_deterministic()
     bng.set_steps_per_second(steps_per_sec)
     bng.load_scenario(scenario)
     bng.start_scenario()
-    ai_line, bng = create_ai_line_from_road_with_interpolation(spawn, bng, road_id)
+    ai_line, bng = create_ai_line_from_road_with_interpolation(spawn_pos, bng, road_id)
     bng.pause()
     assert vehicle.skt
     return vehicle, bng, scenario
 
 
+
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
-                 transf=None, detransf=None):
+                 transf=None, detransf=None, topo=None):
     global base_filename
     global integral, prev_error, setpoint
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
@@ -196,7 +198,9 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         vehicle.update_vehicle()
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
-        vehicle.control(throttle=1., steering=0., brake=0.0)
+        # vehicle.control(throttle=1., steering=0., brake=0.0)
+        steering = line_follower(vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo)
+        vehicle.control(throttle=0.55, steering=steering, brake=0.0)
         bng.step(1, wait=True)
     while damage <= 1:
         # collect images
@@ -208,8 +212,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         if transf is not None:
             if "depth" in transf:
                 image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-            # elif "res" in transf:
-            #     image = image.resize((192, 108))
+            elif "res" in transf:
+                image = image.resize((192, 108))
 
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
@@ -220,7 +224,6 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
             processed_img = model.process_image(image).to(device)
         except Exception as e:
             processed_img = transform(np.asarray(image))[None]
-        # print(f"{processed_img.shape=}")
         prediction = model(processed_img.type(torch.float32))
         steering = float(prediction.item())
         runtime = sensors['timer']['time'] - start_time
@@ -276,37 +279,22 @@ def zero_globals():
     roadright = []
 
 
-def main(topo_id, hash="000", detransf_id=None, transf_id=None):
+def main(topo_id, spawn_pos, rot_quat, cluster, hash="000", detransf_id=None, transf_id=None):
     global base_filename
     zero_globals()
-    model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-fisheye-108x192-50samples-5000epoch-5533848-7_26-11_6-3ONL4J/model-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch631-best069.pt"
-    model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-resinc-480x270-50samples-5000epoch-5518649-7_25-15_47-FWR740/model-DAVE2v3-480x270-5000epoch-64batch-50Ksamples-epoch322-best082.pt"
-
-    # model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-resdec-54x96-50samples-5000epoch-26694-8_4-15_50-CQNXT6/model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
-
-    model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-depth-108x192-50samples-5000epoch-26322-8_4-15_20-FKS06T/model-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch1930-best092.pt"
-    model_name = "F:/SUT-baselines/BASELINE3-DAVE2v3-resdec-54x96-50samples-5000epoch-26694-8_4-15_50-CQNXT6/model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
-
-    model_name = ""
-    transf_id = "mediumfisheye"
-
-    if transf_id == "resdec":
-        from DAVE2resdec import DAVE2v3
-    else:
-        from DAVE2pytorch import DAVE2PytorchModel, DAVE2v3
+    # model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-    print(type(model))
     vqvae_name = None
     vqvae = None
-    vqvae_id = "baseline3"
+    vqvae_id = "baseline0"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
 
-    vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE3', port=64956)
+    vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, spawn_pos=spawn_pos, rot_quat=rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
+                                          beamnginstance='F:/BeamNG.researchINSTANCE3', port=65256)
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
@@ -315,7 +303,7 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     for i in range(runs):
-        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id)
+        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id)
         results['distance'] = get_distance_traveled(results['traj'])
         # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
         print(f"\nBASE MODEL USING IMG DIMS {img_dims} RUN {i}:"
@@ -336,6 +324,7 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
         "default_scenario": default_scenario,
         "road_id": road_id,
         "topo_id": topo_id,
+        "cluster": cluster,
         "transf_id": transf_id,
         "vqvae_name": vqvae_name,
         "model_name": model_name,
@@ -371,23 +360,66 @@ def summarize_results(all_results):
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
           )
+def parse_args():
+    parser = argparse.ArgumentParser(prog='ProgramName', description='What the program does',
+                                     epilog='Text at the bottom of help')
+    parser.add_argument('--effect', help='image transformation', default=None)
+    args = parser.parse_args()
+    print(f"cmd line args:{args}")
+    return args
+
+
+def update_rot(config_topo_id, rot_quat):
+    if config_topo_id == "extra_utahlong":
+        # rot_quat = rot_quat * -1
+        rot_quat = turn_X_degrees(rot_quat, degrees=150)
+    elif config_topo_id == "Rturncommercialunderpass":
+        rot_quat = turn_X_degrees(rot_quat, degrees=90)
+    elif config_topo_id == "Lturnpasswarehouse":
+        rot_quat = turn_X_degrees(rot_quat, degrees=180)
+    elif config_topo_id == "extra_westunderpasses":
+        rot_quat =  turn_X_degrees(rot_quat, degrees=180)
+    return rot_quat
+
+
+
+def line_follower(front, pos, rot_quat, topo=None):
+    global centerline_interpolated
+    distance_from_centerline = dist_from_line(centerline_interpolated, front)
+    dist = min(distance_from_centerline)
+    coming_index = 3
+    i = np.where(distance_from_centerline == dist)[0][0]
+    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
+    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
+    # theta = angle_between(vehicle.state, next_point)
+    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
+    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
+    inner_angle = vehicle_angle - waypoint_angle
+    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
+    if topo == "extra_windingtrack":
+        theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle))
+    elif topo == "Rturn_servicecutthru" or topo == "extra_westunderpasses":
+        theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle)) / (2 * math.pi)
+    action = theta / (2 * math.pi)
+    return action
+
 
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    # transf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
-    transf_ids = ["resdec"]
-    all_results = []
-    for transf_id in transf_ids:
-        hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        results = main("Rturnserviceroad", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("extra_windingnarrowtrack", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("extra_windingtrack", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("Rturn_bigshouldertopo", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        results = main("Rturn_bridgetopo", hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        summarize_results(all_results)
+    df = pd.read_csv("./config-segments_K6U1FE.csv")  # swapped xy, reversed x - math.pi
+    hash = randstr()
+    df = df.reset_index()  # make sure indexes pair with number of rows
+    random.seed(1703)
+    args = parse_args()
+    for index, row in df.iterrows():
+        config_topo_id = row["TOPOID"]
+        spawn_pos = parse_list_from_string(row["SPAWN"])
+        rot_quat = parse_list_from_string(row["ROT_QUAT"])
+        cluster = row["SEGNUM"]
+        cutoff = parse_list_from_string(row["END"])
+        rot_quat = update_rot(config_topo_id, rot_quat)
+        # results = main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id)
+        results = main(config_topo_id, spawn_pos, rot_quat, cluster, hash=hash, transf_id=args.effect)
+
+# NOTE: BEAMNG X AND Y ARE TRANSPOSED AND X AXIS IS FLIPPED (NEGATED)

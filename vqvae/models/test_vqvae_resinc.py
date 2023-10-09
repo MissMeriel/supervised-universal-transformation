@@ -35,14 +35,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = VQVAE(args.n_hiddens, args.n_residual_hiddens,
               args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=transf).to(device)
 if transf == "resinc":
-    img_filename = "../../data/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-hires-01947.jpg"
+    img_filename = "../../datasets/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-hires-01947.jpg"
 elif transf == "resdec":
-    img_filename = "../../data/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-lores-01947.jpg"
+    img_filename = "../../datasets/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-lores-01947.jpg"
 elif transf == "fisheye":
-    img_filename = "../../data/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-transf-01947.jpg"
+    img_filename = "../../datasets/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-transf-01947.jpg"
 elif transf == "depth":
-    img_filename = "../../data/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-base-01947.jpg"
-    img_depth_filename = "../../data/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-depth-01947.jpg"
+    img_filename = "../../datasets/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-base-01947.jpg"
+    img_depth_filename = "../../datasets/supervised-transformation-dataset-alltransforms3/utah-14963-extra_utahlong2-fisheye.None-run00-6_13-14_11-7ZYMOA/sample-depth-01947.jpg"
 img = Image.open(img_filename)
 if transf == "fisheye" or transf == "depth":
     img = img.resize((192, 108))
@@ -57,6 +57,6 @@ transform=transforms.Compose([
         (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
 ])
 img_tensor = transform(img)
-# print(f"Input {img_tensor.shape=}")
+print(f"Input {img_tensor.shape=}")
 embedding_loss, x_hat, perplexity = model(img_tensor[None], verbose=True)
-# print(f"VQVAE output {embedding_loss=}, {x_hat.shape=}, {perplexity=}")
+print(f"VQVAE output {embedding_loss=}, {x_hat.shape=}, {perplexity=}")

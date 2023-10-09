@@ -4,13 +4,14 @@ import torch.nn as nn
 import numpy as np
 import sys, os
 
-sys.path.append(os.getcwd()+"/..")
-sys.path.append(os.getcwd()+"/../..")
-from models.encoder import Encoder
-from models.quantizer import VectorQuantizer
-from models.decoder import Decoder
+# sys.path.append(os.getcwd()+"/..")
+# sys.path.append(os.getcwd()+"/../..")
+sys.path.append("../../vqvae/models")
+from vqvae.models.encoder import Encoder
+from vqvae.models.quantizer import VectorQuantizer
+from vqvae.models.decoder import Decoder
 
-
+print(os.getcwd())
 class VQVAE(nn.Module):
     def __init__(self, h_dim, res_h_dim, n_res_layers,
                  n_embeddings, embedding_dim, beta, save_img_embedding_map=False, transf=None, arch_id=None):

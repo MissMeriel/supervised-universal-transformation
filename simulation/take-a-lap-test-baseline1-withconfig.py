@@ -1,8 +1,7 @@
 import sys
-
 sys.path.append("C:/Users/Meriel/Documents/GitHub/BeamNGpy/src")
 sys.path.append("C:/Users/Meriel/Documents/GitHub/IFAN")
-
+sys.path.append("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation")
 from pathlib import Path
 import string
 import pickle
@@ -15,7 +14,8 @@ import copy
 from scipy import interpolate
 import torch
 from torchvision.transforms import Compose, ToPILImage, ToTensor
-
+import argparse
+import pandas as pd
 
 # from ast import literal_eval
 # from wand.image import Image as WandImage
@@ -26,8 +26,6 @@ from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
 from sim_utils import *
 from transformations import transformations
 from transformations import detransformations
-
-# C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\venv-sutransf\Scripts\python.exe C:\Users\Meriel\Documents\GitHub\supervised-universal-transformation\simulation\test-validation-tracks-baseline000.py
 
 # globals
 integral, prev_error = 0.0, 0.0
@@ -40,9 +38,13 @@ roadleft = []
 roadright = []
 
 
-def throttle_PID(kph, dt):
+def throttle_PID(kph, dt, steering=0.):
     global integral, prev_error, setpoint
     kp = 0.19; ki = 0.0001; kd = 0.008
+    if abs(steering) > 0.15:
+        setpoint = 30
+    else:
+        setpoint = 40
     error = setpoint - kph
     if dt > 0:
         deriv = (error - prev_error) / dt
@@ -80,11 +82,11 @@ def plot_input(timestamps, input, input_type, run_number=0):
     plt.pause(0.1)
 
 
-def road_analysis(bng, road_id):
+def road_analysis(bng, default_scenario, road_id, spawn_pt=None):
     global centerline, roadleft, roadright
     print("Performing road analysis...")
     # get_nearby_racetrack_roads(point_of_in=(-391.0,-798.8, 139.7))
-    # self.plot_racetrack_roads()
+    # plot_racetrack_roads(bng.get_roads(), bng, default_scenario, road_id, reverse=False, sp={"pos":spawn_pt})
     print(f"Getting road {road_id}...")
     edges = bng.get_road_edges(road_id)
     centerline = [edge['middle'] for edge in edges]
@@ -99,12 +101,11 @@ def road_analysis(bng, road_id):
     return centerline, centerline
 
 
-def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
+def create_ai_line_from_road_with_interpolation(spawn, bng, default_scenario, road_id):
     global centerline, centerline_interpolated
     line, points, point_colors, spheres, sphere_colors, traj = [], [], [], [], [], []
     print("Performing road analysis...")
-    actual_middle, adjusted_middle = road_analysis(bng, road_id)
-    print(f"{actual_middle[0]=}, {actual_middle[-1]=}")
+    actual_middle, adjusted_middle = road_analysis(bng, default_scenario, road_id, spawn)
     middle = actual_middle
     count = 0
     # set up adjusted centerline
@@ -132,38 +133,37 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
     # plot_trajectory(traj, "Points on Script (Final)", "AI debug line")
     # centerline = copy.deepcopy(traj)
     centerline_interpolated = copy.deepcopy(traj)
+    print(f"{centerline_interpolated[0]=}")
     bng.add_debug_line(points, point_colors,
                        spheres=spheres, sphere_colors=sphere_colors,
                        cling=True, offset=0.1)
     return line, bng
 
 
-def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,135), fov=51, vehicle_model='etk800', default_color="green", steps_per_sec=15,
+def setup_beamng(default_scenario, spawn_pos, rot_quat,  road_id, reverse=False, seg=1, img_dims=(240,135), fov=51, vehicle_model='etk800', default_color="green", steps_per_sec=15,
                  beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE4', port=64956):
     global base_filename
 
-    random.seed(1703)
+    # random.seed(1703)
     setup_logging()
-    print(road_id)
-    beamng = BeamNGpy('localhost', port, home='C:/Users/Meriel/Documents/BeamNG.research.v1.7.0.1', user=beamnginstance)
+    beamng = BeamNGpy('localhost', port, home='F:/BeamNG.research.v1.7.0.1', user=beamnginstance)
     scenario = Scenario(default_scenario, 'research_test')
     vehicle = Vehicle('ego_vehicle', model=vehicle_model, licence='EGO', color=default_color)
     vehicle = setup_sensors(vehicle, img_dims, fov=fov)
-    spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
-    print(default_scenario, road_id, seg, spawn)
-    scenario.add_vehicle(vehicle, pos=spawn['pos'], rot=None, rot_quat=spawn['rot_quat'])
+    # spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
+    print(default_scenario, road_id, seg,  spawn_pos, rot_quat, )
+    scenario.add_vehicle(vehicle, pos=spawn_pos, rot=None, rot_quat=rot_quat)
     try:
         add_barriers(scenario, default_scenario)
     except FileNotFoundError as e:
         print(e)
-    print(road_id)
     scenario.make(beamng)
     bng = beamng.open(launch=True)
     bng.set_deterministic()
     bng.set_steps_per_second(steps_per_sec)
     bng.load_scenario(scenario)
     bng.start_scenario()
-    ai_line, bng = create_ai_line_from_road_with_interpolation(spawn, bng, road_id)
+    ai_line, bng = create_ai_line_from_road_with_interpolation(spawn_pos, bng, default_scenario, road_id)
     bng.pause()
     assert vehicle.skt
     return vehicle, bng, scenario
@@ -171,11 +171,12 @@ def setup_beamng(default_scenario, road_id, reverse=False, seg=1, img_dims=(240,
 
 def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, reverse=False,
                  device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'), seg=None, vqvae=None,
-                 transf=None, detransf=None):
-    global base_filename
+                 detransf=None, topo=None, cuton_pt=None, cutoff_pt=None):
+    global base_filename, centerline_interpolated
     global integral, prev_error, setpoint
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
-    cutoff_point = spawn['pos']
+    if cutoff_pt is None:
+        cutoff_pt = centerline[-1]
     integral = 0.0
     prev_error = 0.0
     bng.restart_scenario()
@@ -185,25 +186,33 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
-    pitch = vehicle.state['pitch'][0]
-    roll = vehicle.state['roll'][0]
-    z = vehicle.state['pos'][2]
+    # image.save(f"./start-{topo}-{detransf}.jpg")
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
     prev_error = setpoint
-    kphs, traj, steering_inputs, timestamps, throttle_inputs = [], [], [], [], []
+    kphs = []; traj = []; steering_inputs = []; throttle_inputs = []; timestamps = []
     damage = 0.0
+    final_img = None
     total_loops = total_imgs = total_predictions = 0
     start_time = sensors['timer']['time']
     outside_track = False
+    distance_to_cuton = 100
     transform = Compose([ToTensor()])
-    while kph < 35:
+    last_timestamp = start_time
+    while kph < 30 or distance_to_cuton > 3.:
         vehicle.update_vehicle()
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
-        vehicle.control(throttle=1., steering=0., brake=0.0)
+        dt = sensors['timer']['time'] - last_timestamp
+        steering = line_follower(centerline_interpolated, vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo, vehicle.state, vehicle.get_bbox())
+        throttle = throttle_PID(kph, dt, steering=steering)
+        vehicle.control(throttle=throttle, steering=steering, brake=0.0)
+        last_timestamp = sensors['timer']['time']
         bng.step(1, wait=True)
+        vehicle.update_vehicle()
+        distance_to_cuton = distance2D(vehicle.state["pos"], cuton_pt)
+        print(f"{steering=:.3f} \t{distance_to_cuton=:.1f} {dt=:.3f}")
     while damage <= 1:
         # collect images
         vehicle.update_vehicle()
@@ -211,11 +220,15 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         image = sensors['front_cam']['colour'].convert('RGB')
         image_seg = sensors['front_cam']['annotation'].convert('RGB')
         image_depth = sensors['front_cam']['depth'].convert('RGB')
-        if transf is not None:
-            if "depth" in transf:
-                image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
-            elif "res" in transf:
-                image = image.resize((192, 108))
+
+        if "res" in detransf:
+            image = image.resize((192, 108))
+            # image = cv2.resize(np.array(image), (135,240))
+        elif "fisheye" in detransf:
+            image = detransformations.defisheye(np.array(image))
+        elif "depth" in detransf:
+            image_shallowdof = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
+            image = detransformations.deblur(np.array(image_shallowdof))
 
         cv2.imshow('car view', np.array(image)[:, :, ::-1])
         cv2.waitKey(1)
@@ -230,11 +243,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         steering = float(prediction.item())
         runtime = sensors['timer']['time'] - start_time
         total_predictions += 1
-        if abs(steering) > 0.15:
-            setpoint = 30
-        else:
-            setpoint = 40
-        throttle = throttle_PID(kph, dt)
+
+        throttle = throttle_PID(kph, dt, steering=steering)
         vehicle.control(throttle=throttle, steering=steering, brake=0.0)
         steering_inputs.append(steering)
         throttle_inputs.append(throttle)
@@ -246,15 +256,17 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
         kphs.append(ms_to_kph(wheelspeed))
         total_loops += 1
-
+        final_img = image
         dists = dist_from_line(centerline, vehicle.state['pos'])
         m = np.where(dists == min(dists))[0][0]
         if damage > 1.0:
             print(f"Damage={damage:.3f}, exiting...")
+            print(f"Try next spawn: {centerline[m+5]}")
             break
         bng.step(1, wait=True)
-
-        if distance2D(vehicle.state["pos"], cutoff_point) < 12 and len(traj) > 30:
+        dist_to_cutoff = distance2D(vehicle.state["pos"], cutoff_pt)
+        # print(f"{dist_to_cutoff=:.1f}")
+        if dist_to_cutoff < 12 and len(traj) > 30:
             print("Reached cutoff point, exiting...")
             break
 
@@ -267,8 +279,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
 
     deviation = calc_deviation_from_center(centerline, traj)
     results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj,
-               'deviation':deviation, "steering_inputs":steering_inputs,
-                "throttle_inputs":throttle_inputs, "timestamps":timestamps,
+               'final_img':final_img, 'deviation':deviation
                }
     return results
 
@@ -281,52 +292,49 @@ def zero_globals():
     roadright = []
 
 
-def main(topo_id, hash="000", detransf_id=None, transf_id=None):
+def main(topo_id, spawn_pos, rot_quat, cluster="000", hash="000", detransf_id=None, cuton_pt=None, cutoff_pt=None):
     global base_filename
     zero_globals()
-    random.seed("1703")
-    # model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
     model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
     vqvae_name = None
     vqvae = None
-    vqvae_id = "baseline000"
+    baseline_id = "baseline1"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
-    img_dims, fov, transf = get_transf(transf_id)
-    print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
-
-    vehicle, bng, scenario = setup_beamng(default_scenario=default_scenario, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='F:/BeamNG.researchINSTANCE3', port=64956)
+    img_dims, fov, transf = get_transf(detransf_id)
+    print(f"IMAGE DIMS={img_dims}")
+    vehicle, bng, scenario = setup_beamng(default_scenario, spawn_pos, rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
+                                          beamnginstance='F:/BeamNG.researchINSTANCE2', port=64416) # port must be 0-65535
     distances, deviations, trajectories, runtimes = [], [], [], []
-    steerings, throttles, timestamps = [], [], []
-    runs = 3
+    runs = 5
 
-    filepathroot = f"F:/safetransf-base-model-validation-tracks/{model_name.split('/')[-1].replace('.pt', '')}-{hash}/{topo_id}/{topo_id}-{transf_id}-{default_scenario}-{road_id}-{runs}runs-{hash}/"
+    filepathroot = f"simresults/sanitycheckREVISEDCUTONS-{baseline_id}-{detransf_id}-{hash}/{baseline_id}-{detransf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
+    point_nearest = get_nearest_point(centerline, spawn_pos)
+    print(f"{point_nearest=}")
+    if topo_id == "extra_windingtrack" or topo_id == "Rturncommercialunderpass":
+        centerline.reverse()
+        centerline_interpolated.reverse()
+    distances, deviations, deviations_seq, trajectories, runtimes = [], [], [], [], []
+
     for i in range(runs):
-        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id)
+        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg,
+                               vqvae=vqvae, detransf=detransf_id, topo=topo_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
         results['distance'] = get_distance_traveled(results['traj'])
-        # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
-        print(f"\nBASE MODEL USING IMG DIMS {img_dims} RUN {i}:"
+        print(f"\n{baseline_id} {topo_id} {detransf_id} {img_dims=} RUN {i}:"
               f"\n\tdistance={results['distance']:1f}"
               f"\n\tavg dist from center={results['deviation']['mean']:3f}")
         distances.append(results['distance'])
         deviations.append(results['deviation']['mean'])
         trajectories.append(results["traj"])
         runtimes.append(results['runtime'])
-        steerings.append(results["steering_inputs"])
-        throttles.append(results["throttle_inputs"])
-        timestamps.append(results["timestamps"])
     summary = {
         "trajectories": trajectories,
         "dists_from_centerline": deviations,
         "dists_travelled": distances,
-        "steering_inputs": steerings,
-        "throttle_inputs": throttles,
-        "timestamps": timestamps,
         "img_dims": img_dims,
         "centerline_interpolated": centerline_interpolated,
         "roadleft": roadleft,
@@ -334,16 +342,17 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
         "default_scenario": default_scenario,
         "road_id": road_id,
         "topo_id": topo_id,
-        "transf_id": transf_id,
+        "cluster": cluster,
+        "detransf_id": detransf_id,
         "vqvae_name": vqvae_name,
         "model_name": model_name,
         "runtimes": runtimes
     }
 
-    picklefile = open(f"{filepathroot}/summary-{model_name.split('/')[-1]}_{vqvae_id}.pickle", 'wb')
+    picklefile = open(f"{filepathroot}/summary.pickle", 'wb')
     pickle.dump(summary, picklefile)
     picklefile.close()
-    print(f"{topo_id} {transf_id} OUT OF {runs} RUNS:"
+    print(f"{baseline_id} {topo_id} {detransf_id} OUT OF {runs} RUNS:"
           f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
@@ -351,13 +360,11 @@ def main(topo_id, hash="000", detransf_id=None, transf_id=None):
           f"\n\t{deviations:}"
           f"\n\t{vqvae_name=}"
           f"\n\t{model_name=}")
-    id = f"DAVE2V3-{vqvae_id}"
-    try:
-        plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3 ", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
-    except:
-        plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
+    id = f"basemodelalone-{baseline_id}"
+    plot_deviation(trajectories, centerline, roadleft, roadright, baseline_id, filepathroot, savefile=f"{topo_id}-{detransf_id}-{id}")
     bng.close()
     return summary
+
 
 def summarize_results(all_results):
     distances, deviations = [], []
@@ -370,53 +377,31 @@ def summarize_results(all_results):
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
           )
 
-def load_tracklist(filename="posefiles/validation-tracks.txt"):
-    with open(filename, "r") as f:
-        tracks = f.readlines()
-        tracks = [t.replace("\n", "") for t in tracks]
-    return tracks
+
+def parse_args():
+    parser = argparse.ArgumentParser(prog='ProgramName', description='What the program does',
+                                     epilog='Text at the bottom of help')
+    parser.add_argument('--effect', help='image transformation', default=None)
+    args = parser.parse_args()
+    print(f"cmd line args:{args}")
+    return args
+
 
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    transf_id = "medium"
-    all_results = []
-    # DONE:
-    tracks = ["extra_small_islandcoast_a_nw","extra_jungleouter_road_a", "extra_jungledrift_road_d", "extra_westcoastrocks", "extra_jungleouter_road_b",
-                "Lturn_uphill", "extra_dock","countryrd", "Rturn_mtnrd",  "Rturn", "Lturn", "extra_utahlong",
-                "extra_utahlong2", "extra_utahexittunnel", "extra_utahswitchback", "Rturn_small_island_ai_1", "Rturn_int_a_small_island",
-                "extra_junglemountain_road_c",  "Rturn_industrialnarrowservicerd", "Rturnrockylinedmtnroad",
-                "extra_dock", "Rturn_maintenancerd", "Rturn_narrowcutthru", "Rturn_bigshoulder", "Rturn_servicecutthru",
-                "extrawinding_industrialrcasphalta", "extrawinding_industrial7978","Rturn_hirochitrack", "Rturn_sidequest", "Rturn_lanelines",
-                "Rturn_bridge", "Lturn_narrowservice", "Rturn_industrialrc_asphaltd", "Rturn_industrial7978",
-                "Rturn_industrialrc_asphaltb", "Lturn_junglemountain_road_e", "extra_jungledrift_road_b", "extra_jungle8161",
-                "extra_junglemountain_alt_f", "extra_junglemountain_road_i", "extra_junglemeander8114", "extra_jungledrift_road_m",
-                "extra_jungledrift_road_k", "extra_jungle8131", "extra_junglemountain_alt_a", "extra_junglemeander7994", "extra_jungle8000",
-                "extra_dock", "extra_winding",  "extra_whatever", "extra_utahtunnel", "extra_wideclosedtrack",
-                "extra_wideclosedtrack2", "extra_windingnarrowtrack", "extra_windingtrack", "extra_multilanehighway", "extra_multilanehighway2",
-                "extra_jungleouter_road_c", "extrawinding_industrialtrack", "straight",
-                "Lturn_test3", "extra_driver_trainingvalidation2", "extra_lefthandperimeter",
-                "narrowjungleroad1", "narrowjungleroad2", "Lturnyellow", "straightcommercialroad", "Rturninnertrack", "straightwidehighway",
-                "Rturncommercialunderpass", "Lturncommercialcomplex", "Lturnpasswarehouse", "Rturnserviceroad", "Rturnlinedmtnroad",
-                "Rturn_industrial8022whitepave", "Rturn_industrial8068widewhitepave", "Rturn_industrialrc_asphaltc",
-                "extra_westdockleftside", "extra_westmtnroad", "extra_jungledrift_road_f", "extra_junglemain_tunnel", "extra_jungledrift_road_s",
-                "extra_jungledrift_road_e", "extra_jungledrift_road_a", "extra_junglemountain_road_h", "extra_westoutskirts", "extra_westsuburbs",
-                "extra_westunderpasses", "extra_westLturnway", "extra_westofframp",
-                "dealwithlater"]
-    # FIX: , "extrawinding_industrial8067","extra_windyjungle8082", "extra_utahswitchback"
-    # FIX 4 VALIDATION: "countryroad", "Rturn_narrowcutthru"
-    #topos = ["extra_test7", "Lturn_uphill", "extra_test2", "extra_test1",  "extra_test3", "extra_test1", "extra_test4",]
-    tracks = load_tracklist("posefiles/validation-tracks2.txt")
-    for track in tracks:
-        hash = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        results = main(track, hash=hash, transf_id=transf_id)
-        all_results.append(results)
-        # results = main("extra_windingnarrowtrack", hash=hash, transf_id=transf_id)
-        # all_results.append(results)
-        # results = main("extra_windingtrack", hash=hash, transf_id=transf_id)
-        # all_results.append(results)
-        # results = main("Rturn_bigshouldertopo", hash=hash, transf_id=transf_id)
-        # all_results.append(results)
-        # results = main("Rturn_bridgetopo", hash=hash, transf_id=transf_id)
-        # all_results.append(results)
-    summarize_results(all_results)
+    # detransf_ids = ["mediumdepth", "resinc", "resdec", "mediumfisheye"]
+    df = pd.read_csv("./config-segments_inuse-revised.csv")
+    hash = randstr()
+    df = df.reset_index()  # make sure indexes pair with number of rows
+    random.seed(1703)
+    args = parse_args()
+    for index, row in df.iterrows():
+        config_topo_id = row["TOPOID"]
+        spawn_pos = parse_list_from_string(row["SPAWN"])
+        rot_quat = parse_list_from_string(row["ROT_QUAT"])
+        cluster = row["SEGNUM"]
+        cutoff = parse_list_from_string(row["END"])
+        cuton_pt = parse_list_from_string(row["START"])
+        cutoff_pt = parse_list_from_string(row["CUTOFF"])
+        results = main(config_topo_id, spawn_pos, rot_quat, cluster=cluster, hash=hash, detransf_id=args.effect, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)

@@ -6,6 +6,19 @@ from matplotlib import pyplot as plt
 from beamngpy import BeamNGpy, Scenario, Vehicle, setup_logging, StaticObject, ScenarioObject
 from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
 import random
+import string
+import warnings
+from functools import wraps
+
+def ignore_warnings(f):
+    @wraps(f)
+    def inner(*args, **kwargs):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("ignore")
+            response = f(*args, **kwargs)
+        return response
+    return inner
+
 
 # positive angle is to the right / clockwise
 def spawn_point(default_scenario, road_id, reverse=False, seg=1):
@@ -293,7 +306,8 @@ def spawn_point(default_scenario, road_id, reverse=False, seg=1):
         elif road_id == "7978":
             return {'pos':(95.38813781738281,3.2,42.529296875), 'rot': None, 'rot_quat':turn_X_degrees((0.0,0.0,0.0,1.0), 0)}
         elif road_id == "8068":
-            return {'pos':(177.36476135253906,-371.0460510253906,34.09881591796875), 'rot': None, 'rot_quat':turn_X_degrees((0.0,0.0,0.0,1.0), -60)}
+            # return {'pos':(177.36476135253906,-371.0460510253906,34.09881591796875), 'rot': None, 'rot_quat':turn_X_degrees((0.0,0.0,0.0,1.0), -60)}
+            return {'pos': (193.3,-381.5,34.9), 'rot': None, 'rot_quat': turn_X_degrees((-0.011,-0.045,-0.27,0.96), 0)}
         elif road_id == "8028": # similar to 7978
             # return {'pos':(-4.2,-329.8,34.1), 'rot': None, 'rot_quat':turn_X_degrees((0.0,0.0,0.0,1.0), -105)}
             return {'pos': (8.1,-328.3,34.7), 'rot': None, 'rot_quat': turn_X_degrees((0.0, 0.0, 0.0, 1.0), -60)}
@@ -639,7 +653,8 @@ def spawn_point(default_scenario, road_id, reverse=False, seg=1):
         elif road_id == "main_tunnel":
             return {'pos': (-500.2301025390625, -186.64100646972656, 135.9), 'rot': None, 'rot_quat': turn_X_degrees((0.0, 0.0, 0.0, 1.0), 165)}
         elif road_id == "drift_road_s":
-            return {'pos': (-459.158,103.86,135.381), 'rot': None, 'rot_quat':turn_X_degrees((0.0, 0.0, 0.0, 1.0), 180)}
+            # return {'pos': (-459.158,103.86,135.381), 'rot': None, 'rot_quat':turn_X_degrees((0.0, 0.0, 0.0, 1.0), 180)} # FOR TRAINING COLLECTION
+            return {'pos': (-473.345,126.791,135.7), 'rot': None, 'rot_quat': turn_X_degrees((0.005,0.02,0.52,0.85), 0)}
         elif road_id == "drift_road_e":
             return {'pos': (-226.21485900878906, -744.7556762695312, 148.9), 'rot': None, 'rot_quat':turn_X_degrees((0.0, 0.0, 0.0, 1.0), 180)}
         elif road_id == "drift_road_a":
@@ -834,12 +849,20 @@ def distance2D(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
+def get_nearest_point(line, point):
+    dists = dist_from_line(line, point)
+    index = np.nanargmin(np.array(dists))
+    line_point = line[index]
+    return line_point, index
+
+
 def turn_X_degrees(rot_quat, degrees=90):
     r = R.from_quat(list(rot_quat))
     r = r.as_euler('xyz', degrees=True)
     r[2] = r[2] + degrees
     r = R.from_euler('xyz', r, degrees=True)
     return tuple(r.as_quat())
+
 
 def get_topo(topo_id):
     # automation_test_track roads
@@ -1185,30 +1208,20 @@ def get_topo(topo_id):
 
 
 def get_transf(transf_id):
-    if transf_id == "regular" or transf_id is None:
-        img_dims = (240, 135); fov = 51; transf = "None"
-    elif transf_id == "medium":
+    if transf_id == "medium":
         img_dims = (192, 108); fov = 51; transf = "None"
+    elif transf_id == "resdec":
+        img_dims = (96, 54); fov = 51; transf = "resdec"
+    elif transf_id == "resinc":
+        img_dims = (480,270); fov = 51; transf = "resinc"
     elif transf_id == "mediumfisheye":
         img_dims = (192, 108); fov = 75; transf = "fisheye"
     elif transf_id == "mediumdepth":
         img_dims = (192, 108); fov = 51; transf = "depth"
-    elif transf_id == "small":
-        img_dims = (144, 81); fov = 51; transf = "None"
-    elif "fisheye" in transf_id:
-        img_dims = (240,135); fov=75; transf = "fisheye"
-    elif transf_id == "resdec":
-        img_dims = (96, 54); fov = 51; transf = "resdec"
-        # img_dims = (54, 96); fov = 51; transf = "resdec"
-    elif transf_id == "resdec2":
-        img_dims = (120, 67); fov = 51; transf = "None"
-    elif transf_id == "resinc":
-        img_dims = (480,270); fov = 51; transf = "resinc"
-    elif transf_id == "depth":
-        img_dims = (240, 135); fov = 51; transf = "depth"
     return img_dims, fov, transf
 
 
+@ignore_warnings
 def lineseg_dists(p, a, b):
     """Cartesian distance from point to line segment
     Edited to support arguments as series, from:
@@ -1218,30 +1231,38 @@ def lineseg_dists(p, a, b):
         - a: np.array of shape (x, 2)
         - b: np.array of shape (x, 2)
     """
-    # normalized tangent vectors
     d_ba = b - a
     d = np.divide(d_ba, (np.hypot(d_ba[:, 0], d_ba[:, 1]).reshape(-1, 1)))
-
-    # signed parallel distance components
-    # rowwise dot products of 2D vectors
     s = np.multiply(a - p, d).sum(axis=1)
     t = np.multiply(p - b, d).sum(axis=1)
-
-    # clamped parallel distance
     h = np.maximum.reduce([s, t, np.zeros(len(s))])
-
-    # perpendicular distance component
-    # rowwise cross products of 2D vectors
     d_pa = p - a
     c = d_pa[:, 0] * d[:, 1] - d_pa[:, 1] * d[:, 0]
-
     return np.hypot(h, c)
+
+
+def lineseg_dists2(p,a,b):
+    d=np.cross(b-a,p-a)/np.linalg.norm(b-a)
+    return d
+
+
+from scipy.spatial.distance import pdist
+def lineseg_dists3(p,a,b):
+    # option 1
+    # segdists = pdist(points, metric='euclidean')
+    # print(f"option 1 {segdists=}")
+    # option 2
+    dp = np.dot(b,a)
+    pp = dp / np.linalg.norm(b-a)
+    pn = np.linalg.norm(p, axis=1)
+    segdists = np.sqrt(pn ** 2 - pp ** 2)
+    print(f"option 2 {segdists=}")
+    # return segdists
 
 
 #return distance between two any-dimenisonal points
 def distance(a, b):
     sqr = sum([math.pow(ai-bi, 2) for ai, bi in zip(a,b)])
-    # return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2)
     return math.sqrt(sqr)
 
 
@@ -1257,7 +1278,7 @@ def dist_from_line(centerline, point):
 # car is approximately 1.85m wide
 def has_car_left_track(vehicle_pos, centerline_interpolated, max_dist=5.0):
     distance_from_centerline = dist_from_line(centerline_interpolated, vehicle_pos)
-    dist = min(distance_from_centerline)
+    dist = np.nanmin(distance_from_centerline)
     return dist > max_dist, dist
 
 def calc_deviation_from_center(centerline, traj):
@@ -1281,16 +1302,11 @@ def ms_to_kph(wheelspeed):
     return wheelspeed * 3.6
 
 
-
-
 '''PLOTTING RESULTS'''
 ''' takes in 3D array of sequential [x,y] '''
 def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflation_pattern, savefile="trajectories"):
-    x, y = [], []
-    for point in centerline:
-        x.append(point[0])
-        y.append(point[1])
-    plt.plot(x, y, "k-")
+    fig, ax = plt.subplots()
+    plt.plot(np.array(centerline)[:,0], np.array(centerline)[:,1], "k-")
     x, y = [], []
     for point in roadleft:
         x.append(point[0])
@@ -1314,7 +1330,7 @@ def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflati
     min_y, max_y = y[0], y[-1]
     plt.xlim(min_x - 12, max_x + 12)
     plt.ylim(min_y - 12, max_y + 12)
-
+    ax.set_aspect('equal', adjustable='box')
     plt.title(f'Trajectories with {model} \n{savefile}')
     # plt.legend()
     plt.legend(loc=2, prop={'size': 6})
@@ -1325,11 +1341,41 @@ def plot_deviation(trajectories, centerline, roadleft, roadright, model, deflati
     # plt.show()
     # plt.pause(0.1)
 
+
+def update_rot(config_topo_id, rot_quat):
+    if config_topo_id == "Rturncommercialunderpass":
+        rot_quat = turn_X_degrees(rot_quat, degrees=90)
+    return rot_quat
+
+def line_follower(centerline_interpolated, front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None):
+    distance_from_centerline = dist_from_line(centerline_interpolated, front)
+    coming_index = 3 #7
+    if topo == "extra_jungledrift_road_d" or topo == "extra_windingtrack":
+        coming_index = 2
+    i =  np.nanargmin(distance_from_centerline)
+    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
+    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
+    # theta = angle_between(vehicle.state, next_point)
+    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
+    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
+    inner_angle = vehicle_angle - waypoint_angle
+    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
+    action = theta / (math.pi)
+    if topo == "extra_jungledrift_road_d":
+        action = theta / (math.pi/2)
+    # if vehicle_state is not None:
+    #     road_seg = nearest_seg(centerline, front, roadleft, roadright)
+    #     plot_intersection_with_CV2(vehicle_state, road_seg, next_point, bbox, action)
+    return action
+
+
+
 '''PLOT DRIVING ENVIRONMENT'''
 
-def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False):
+def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False, sp=None):
     print("Plotting scenario roads...")
-    sp = spawn_point(default_scenario, road_id, reverse=reverse)
+    if sp is None:
+        sp = spawn_point(default_scenario, road_id, reverse=reverse)
     colors = ['b','g','r','c','m','y','k']
     symbs = ['-','--','-.',':','.',',','v','o','1',]
     selectedroads = []
@@ -1344,22 +1390,74 @@ def plot_racetrack_roads(roads, bng, default_scenario, road_id, reverse=False):
         if (s < 200):
             continue
         for edge in road_edges:
-            # if edge['middle'][0] < -250 or edge['middle'][0] > 50 or edge['middle'][1] < 0 or edge['middle'][1] > 300:
-            if edge['middle'][1] < -50 or edge['middle'][1] > 250:
-                add = False
-                break
-            if add:
-                x_temp.append(edge['middle'][0])
-                y_temp.append(edge['middle'][1])
-        if add:
-            symb = '{}{}'.format(random.choice(colors), random.choice(symbs))
-            plt.plot(x_temp, y_temp, symb, label=road)
-            selectedroads.append(road)
+            x_temp.append(edge['middle'][0])
+            y_temp.append(edge['middle'][1])
+        symb = '{}{}'.format(random.choice(colors), random.choice(symbs))
+        plt.plot(x_temp, y_temp, symb, label=road)
+        selectedroads.append(road)
     for r in selectedroads: # ["8179", "8248", "8357", "8185", "7770", "7905", "8205", "8353", "8287", "7800", "8341", "7998"]:
         a = bng.get_road_edges(r)
         print(r, a[0]['middle'])
     plt.plot([sp['pos'][0]], [sp['pos'][1]], "bo")
-    plt.legend()
+    plt.legend(ncols=10)
     plt.show()
     plt.pause(0.001)
 
+
+def randstr():
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+
+
+def parse_list_from_string(l):
+    l = ' '.join(l.split())
+    l = l[1:-2]
+    l = [float(ele) for ele in l.split()]
+    return l
+
+
+def nearest_seg(road, pos, roadleft, roadright):
+    road_seg = {}
+    dists = dist_from_line(road, pos)
+    idx = max(np.where(dists == min(dists)))[0]
+    road_seg_left = []
+    road_seg_right = []
+    for i in range(-1,15):
+        if idx + i < 0:
+            road_seg_left.append(roadleft[len(roadleft) + (idx + i)])
+            road_seg_right.append(roadright[len(roadright) + (idx + i)])
+        else:
+            road_seg_left.append(roadleft[idx+i])
+            road_seg_right.append(roadright[idx+i])
+    road_seg['left'] = road_seg_left
+    road_seg['right'] = road_seg_right
+    return road_seg
+
+import cv2
+@ignore_warnings
+def plot_intersection_with_CV2(vehicle_state, road_seg, next_pt, bbox, steering):
+    fig, ax = plt.subplots()
+    yaw = vehicle_state['yaw'][0]
+    x = np.array([bbox[k][0] for k in bbox.keys()])
+    y = np.array([bbox[k][1] for k in bbox.keys()])
+    plt.plot(x,y, "m", label="car (bounding box)")
+    plt.plot([x[0], x[-1]],[y[0], y[-1]], "m", linewidth=1)
+    plt.plot([x[4], x[2], x[1], x[-1]], [y[4], y[2], y[1], y[-1]], "m", linewidth=1)
+    plt.plot([vehicle_state['front'][0]], [vehicle_state['front'][1]], "ms", label="car (front)")
+    # add coming point
+    plt.plot([next_pt[0]], [next_pt[1]], marker="o", markersize=20, markeredgecolor="red", markerfacecolor="green", label="Next point")
+    # add road segment
+    for k in road_seg.keys():
+        plt.plot([road_seg[k][i][0] for i in range(len(road_seg[k]))], [road_seg[k][i][1] for i in range(len(road_seg[k]))], "k")
+    plt.title(f'{steering=:.3f}')
+    plt.legend()
+    plt.axis('square')
+    fig.canvas.draw()
+    # convert canvas to image
+    img = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8,sep='')
+    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    # img is rgb, convert to opencv's default bgr
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # display image with opencv or any operation you like
+    cv2.imshow("plot", img)
+    cv2.waitKey(1)
+    plt.close('all')

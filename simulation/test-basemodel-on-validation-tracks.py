@@ -417,20 +417,11 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, trans
             base_model_inf = float(base_model_inf.item())
             curr_steering = sensors['electrics']['steering_input']
             # expert_action, cartocl_theta_deg = get_expert_action(vehicle)
-            expert_action = -leftrightcenter * (distance_from_center / 8)
-            if "Rturn" in topo_id or "Lturn" in topo_id or "extra" in topo_id:
-                expert_action = -leftrightcenter * (distance_from_center)
-            # print(f"action={expert_action=:.3f}\t\ttheta{math.degrees(cartocl_theta_deg)=:.3f}")
-            # evaluation = abs(expert_action - base_model_inf) < 0.05
-            # if evaluation:
-            #     steering = base_model_inf
-            #     blackedout = np.ones((100,100,3))
-            #     blackedout[:, :, :2] = blackedout[:, :, :2] * 0
-            #     cv2.imshow("action image", blackedout)  # red
-            #     cv2.waitKey(1)
-            # else:
-            setpoint_steering = expert_action
-            steering = steering_PID(curr_steering, setpoint_steering, dt)
+            # expert_action = -leftrightcenter * (distance_from_center / 8)
+            # if "Rturn" in topo_id or "Lturn" in topo_id or "extra" in topo_id:
+            #     expert_action = -leftrightcenter * (distance_from_center)
+            # setpoint_steering = expert_action
+            # steering = steering_PID(curr_steering, setpoint_steering, dt)
             cv2.imshow("action image", np.zeros((120,120,3)))  # black
             cv2.waitKey(1)
             frames_adjusted += 1
@@ -607,7 +598,7 @@ def get_current_segment_shape(vehicle_pos):
 def main(topo_name="Lturn_uphill"):
     global interventions, episode_steps, centerline
     global steer_integral, steer_prev_error, topo_id
-    model_name = "../weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt"
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
     # pytorch_total_params = sum(p.numel() for p in model.parameters())

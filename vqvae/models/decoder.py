@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from models.residual import ResidualStack
+from vqvae.models.residual import ResidualStack
 
 
 class Decoder(nn.Module):
@@ -42,6 +42,7 @@ class Decoder(nn.Module):
         # self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel, stride=stride, padding=1)
         # self.transf = transf
         # if transf == "resdec":
+        #     # self.convtrans3 = nn.ConvTranspose2d(h_dim // 2, 3, kernel_size=16, stride=3, padding=0)
         #     self.convtrans3 = nn.ConvTranspose2d(h_dim//2, 3, kernel_size=8, stride=4, padding=0) # 54 x 96 to 108 x 192, output is torch.Size([1, 3, 108, 196])
         # elif transf == "resinc":
         #     self.convtrans1 = nn.ConvTranspose2d(in_dim, h_dim, kernel_size=32, stride=1, padding=(2, 0))
@@ -55,7 +56,7 @@ class Decoder(nn.Module):
         # y = self.residual_stack(y)
         # y = self.convtrans2(y)
         # y = nn.ReLU()(y)
-        # y = self.convtrans3(y)        
+        # y = self.convtrans3(y)
         # return y
 
 
