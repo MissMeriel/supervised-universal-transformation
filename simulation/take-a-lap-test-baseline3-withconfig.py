@@ -183,7 +183,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
-    image.save(f"./start-{topo}-{detransf}.jpg")
+    # image.save(f"./start-{topo}-{detransf}.jpg")
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
@@ -293,13 +293,14 @@ def main(topo_id, spawn_pos, rot_quat, cluster, model_name, hash="000", detransf
         from DAVE2pytorch import DAVE2PytorchModel, DAVE2v3
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-    print(type(model), model.input_shape)
     vqvae_name = None
     vqvae = None
     baseline_id = "baseline3"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
     print(f"TRANSFORM={transf_id} \t IMAGE DIMS={img_dims} \t {spawn_pos=} \t {rot_quat=}")
+    print(f"{type(model)=}, {model.input_shape=}, {model.input_shape[::-1]=}")
+    assert model.input_shape[::-1] == img_dims
 
     vehicle, bng, scenario = setup_beamng(default_scenario, spawn_pos, rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
                                           beamnginstance='F:/BeamNG.researchINSTANCE3', port=64356, topo_id=topo_id)
@@ -361,6 +362,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster, model_name, hash="000", detransf
     bng.close()
     return summary
 
+
 def summarize_results(all_results):
     distances, deviations = [], []
     for result in all_results:
@@ -382,12 +384,11 @@ def get_model_name(transf_id):
         return "../weights/baseline3-50K/portal442655-depth-Tset-50K-108x192-epoch4572-best073.pt"
     elif transf_id == "resinc":
         # return "../weights/baseline3/model-baseline3-resinc-ONLY4523EPOCHS-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4400-best149.pt"
-        return "../weights/baseline3-50K/portal432639-baseline3-resinc-Tset-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4844-best073.pt" # RETRAINED
-        # return "../weights/baseline3/resinc-test-model-DAVE2v3-270x480-5000epoch-64batch-10Ksamples-epoch001-best002.pt" # TEST
+        # return "../weights/baseline3-50K/portal432639-baseline3-resinc-Tset-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4844-best073.pt" # RETRAINED (INCORRECT MODEL SHAPE DO NOT USE)
+        return "../weights/baseline3/resinc-test-model-DAVE2v3-270x480-5000epoch-64batch-10Ksamples-epoch001-best002.pt" # TEST
+        return
     elif transf_id == "resdec":
-        # return "../weights/baseline3/baseline3-resdec-model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
-        # return "../weights/baseline3-10K/portal644260_resdec_Tset-54x96-5000epoch-64batch-10Ksamples-epoch4826-best115.pt"
-        return "../weights/baseline3-50K/portal503649-resdec-50K-Tset-54x96-5000epoch-epoch2278-best059.pt"
+        return "../weights/baseline3-50K/portal643840-resdec-Tset-54x96-5000epoch-epoch3995-best067.pt"
 
 
 def parse_args():
