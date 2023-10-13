@@ -180,7 +180,7 @@ def main_pytorch_model():
             if i % logfreq == logfreq-1:  # print every 2000 mini-batches
                 print('[%d, %5d] loss: %.7f' %
                       (epoch + 1, i + 1, running_loss / logfreq), flush=True)
-                if (running_loss / logfreq) < lowest_loss and epoch > 0:
+                if (running_loss / logfreq) < lowest_loss and epoch > 4:
                     print(f"New best model! MSE loss: {running_loss / logfreq}", flush=True)
                     model_name = f"./{newdir}/model-{iteration}-epoch{(epoch + args.start_epochs):03d}-best{best_model_count:03d}.pt"
                     print(f"Saving model to {model_name}", flush=True)
@@ -204,8 +204,8 @@ def main_pytorch_model():
     model_name = f'./{newdir}/model-{iteration}.pt'
     torch.save(model, model_name)
 
-    # delete models from previous epochs
-    # print("Deleting models from previous epochs...", flush=True)
+    # delete weights from previous epochs
+    # print("Deleting weights from previous epochs...", flush=True)
     # for epoch in range(NB_EPOCH):
     #     os.remove(f"./{newdir}/model-{iteration}-epoch{epoch:03d}.pt")
     print(f"Saving model to {model_name}", flush=True)

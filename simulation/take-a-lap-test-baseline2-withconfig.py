@@ -285,15 +285,13 @@ def zero_globals():
 def main(topo_id, spawn_pos, rot_quat, cluster, cutoff, hash="000", detransf_id=None, transf_id=None):
     global base_filename
     zero_globals()
-    model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
-    model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-fisheye-108x192-50samples-5000epoch-5533848-7_26-11_6-3ONL4J/model-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch631-best069.pt"
-    model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-resinc-480x270-50samples-5000epoch-5518649-7_25-15_47-FWR740/model-DAVE2v3-480x270-5000epoch-64batch-50Ksamples-epoch322-best082.pt"
-
-    # model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-resdec-54x96-50samples-5000epoch-26694-8_4-15_50-CQNXT6/model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
-
-    model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-depth-108x192-50samples-5000epoch-26322-8_4-15_20-FKS06T/model-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch1930-best092.pt"
-    # model_name = "F:/SUT-baselines/BASELINE3-DAVE2v3-resdec-54x96-50samples-5000epoch-26694-8_4-15_50-CQNXT6/model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
-
+    # model_name = "F:/dave2-base-vqvae/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
+    # model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-fisheye-108x192-50samples-5000epoch-5533848-7_26-11_6-3ONL4J/model-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch631-best069.pt"
+    # model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-resinc-480x270-50samples-5000epoch-5518649-7_25-15_47-FWR740/model-DAVE2v3-480x270-5000epoch-64batch-50Ksamples-epoch322-best082.pt"
+    # # model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-resdec-54x96-50samples-5000epoch-26694-8_4-15_50-CQNXT6/model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
+    # model_name = "F:/SUT-baselines/baseline3/BASELINE3-DAVE2v3-depth-108x192-50samples-5000epoch-26322-8_4-15_20-FKS06T/model-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch1930-best092.pt"
+    # # model_name = "F:/SUT-baselines/BASELINE3-DAVE2v3-resdec-54x96-50samples-5000epoch-26694-8_4-15_50-CQNXT6/model-DAVE2v3-54x96-5000epoch-64batch-50Ksamples-epoch4612-best086.pt"
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     transf_id = "mediumfisheye"
 
     if transf_id == "resdec":
@@ -315,16 +313,13 @@ def main(topo_id, spawn_pos, rot_quat, cluster, cutoff, hash="000", detransf_id=
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
-    # filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}/{transf_id}/{hash}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
     filepathroot = f"simresults/{baseline_id}-{transf_id}-{hash}/{baseline_id}-{transf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
-
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     for i in range(runs):
         results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg, vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id)
         results['distance'] = get_distance_traveled(results['traj'])
-        # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
         print(f"\nBASE MODEL USING IMG DIMS {img_dims} RUN {i}:"
               f"\n\tdistance={results['distance']:1f}"
               f"\n\tavg dist from center={results['deviation']['mean']:3f}")

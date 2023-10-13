@@ -6,11 +6,14 @@ import sys, os
 
 # sys.path.append(os.getcwd()+"/..")
 # sys.path.append(os.getcwd()+"/../..")
-# sys.path.append("../../vqvae/models")
-sys.path.append(__file__.replace("vqvae.py",""))
-from models.encoder import Encoder
-from models.quantizer import VectorQuantizer
-from models.decoder import Decoder
+# sys.path.append("../../vqvae/vqvae")
+sys.path.append(__file__.replace("vqvae\\vqvae.py",""))
+sys.path.append(__file__.replace("\\vqvae.py",""))
+sys.path.append("..")
+# sys.path.append(__file__.replace("vqvae/vqvae.py",""))
+from vqvae.encoder import Encoder
+from vqvae.quantizer import VectorQuantizer
+from vqvae.decoder import Decoder
 
 print(os.getcwd())
 class VQVAE(nn.Module):

@@ -68,7 +68,7 @@ Load data and define batch data loaders
 training_data, validation_data, training_loader, validation_loader, x_train_var = utils.load_data_and_data_loaders(
     args.dataset, args.batch_size, shuffle=False, topo=args.topo, transf=args.transf)
 """
-Set up VQ-VAE model with components defined in ./models/ folder
+Set up VQ-VAE model with components defined in ./vqvae/ folder
 """
 model = VQVAE(args.n_hiddens, args.n_residual_hiddens, args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=args.transf, arch_id=args.arch_id).to(device)
 checkpoint = torch.load(args.weights, map_location=device)

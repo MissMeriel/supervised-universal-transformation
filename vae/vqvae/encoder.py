@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from models.residual import ResidualStack
+from vqvae.residual import ResidualStack
 
 
 class Encoder(nn.Module):
@@ -29,19 +29,21 @@ class Encoder(nn.Module):
         print(f"ENCODER TRANSF={transf} ARCH_ID={arch_id}")
         print(f"{in_dim=}, {h_dim=}, {n_res_layers=}, {res_h_dim=}")
         self.verbose = verbose
-        self.conv_stack = nn.Sequential(
-            nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel,
-                      stride=stride, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel,
-                      stride=stride, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(h_dim, h_dim, kernel_size=kernel-1,
-                      stride=stride-1, padding=1),
-            ResidualStack(
-                h_dim, h_dim, res_h_dim, n_res_layers)
-        )
-        if transf == "resinc":
+        if arch_id == None:
+            print("loading original encoder")
+            self.conv_stack = nn.Sequential(
+                nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel,
+                          stride=stride, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel,
+                          stride=stride, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(h_dim, h_dim, kernel_size=kernel - 1,
+                          stride=stride - 1, padding=1),
+                ResidualStack(
+                    h_dim, h_dim, res_h_dim, n_res_layers)
+            )
+        elif transf == "resinc":
             self.conv_stack = nn.Sequential(
                 nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel+1,
                         stride=stride+1, padding=(2, 0)),
@@ -164,7 +166,8 @@ class Encoder(nn.Module):
                                 nn.Conv2d(h_dim, h_dim, kernel_size=kernel-1,
                                         stride=stride, padding=1),
                                 ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                        ) 
+                        )
+
 
     def forward(self, x):
             return self.conv_stack(x)
