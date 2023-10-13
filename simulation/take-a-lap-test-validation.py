@@ -572,7 +572,7 @@ def zero_globals():
 def main(topo_id, hash="000"):
     global base_filename
     zero_globals()
-    model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
+    model_name = "F:/dave2-base-vqvae/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
     #model_name = "F:/SUT-baselines/baseline2/DAVE2v3-fisheye-108x192-145samples-5000epoch-5372021-7_14-0_8-8LX2GG/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch500-best013.pt"
     model_name = "F:/SUT-baselines/baseline2/DAVE2v3-fisheye-108x192-145samples-5000epoch-5377774-7_12-12_24-Q9VSHM/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch571-best018.pt"
     # model_name = "F:/SUT-baselines/baseline2/DAVE2v3-depth-108x192-145samples-5000epoch-5372014-7_11-21_33-V0CD5D/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch095-best029.pt"

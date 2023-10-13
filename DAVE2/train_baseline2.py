@@ -5,6 +5,7 @@ import cv2
 import matplotlib.image as mpimg
 import json
 from torch.autograd import Variable
+from torchsummary import summary
 
 import os
 from PIL import Image
@@ -76,12 +77,49 @@ def main_pytorch_model():
     print(f"{args.effect=}", flush=True)
     if args.effect == "resdec":
         from DAVE2resdec import DAVE2v3
+        model =  DAVE2v3(input_shape=input_shape).to(device)
+        print("\nmodel.input_shape[::-1]", model.input_shape[::-1])
+        print(f"SUMMARY OF MODEL USING (3,54,96) \n{summary(model, (3,54,96))}")
+        if args.pretrained_model is not None:
+            model_pretrained = DAVE2v3(input_shape=input_shape)
+            model_pretrained = model.load(args.pretrained_model, map_location=device)
+            model.conv1 = model_pretrained.conv1
+            model.conv2 = model_pretrained.conv2
+            # model.conv3 = model_pretrained.conv3
+            model.lin1 = model_pretrained.lin2
+            model.lin2 = model_pretrained.lin3
+            model.lin3 = model_pretrained.lin4
+            model = model.to(device)
+            print("\nAFTER LOADING WARMSTART")
+            print("\nmodel.input_shape[::-1]", model.input_shape[::-1])
+            print(f"SUMMARY OF MODEL USING (3,54,96) \n{summary(model, (3,54,96))}")
+    elif args.effect == "resinc":
+        from DAVE2pytorch import DAVE2v3
         model = DAVE2v3(input_shape=input_shape)
+        model.to(device)
+        print(f"{input_shape=}")
+        # print(f"\nSUMMARY OF MODEL USING (3, 270,480) \n{summary(model, (3,270,480))}")
+        if args.pretrained_model is not None:
+            model_pretrained = DAVE2v3(input_shape=input_shape)
+            model_pretrained = model_pretrained.load(args.pretrained_model, map_location=device)
+            model_pretrained.to(device)
+            model_dict = model.state_dict()
+            model.conv1 = model_pretrained.conv1
+            model.conv2 = model_pretrained.conv2
+            model.conv3 = model_pretrained.conv3
+            model.lin2 = model_pretrained.lin2
+            model.lin3 = model_pretrained.lin3
+            model.lin4 = model_pretrained.lin4
+        print("\nmodel.input_shape[::-1]", model.input_shape[::-1])
+        print(f"SUMMARY OF MODEL USING (3, 270,480) \n{summary(model, (3,270,480))}")
     else:
         from DAVE2pytorch import DAVE2v3
         model = DAVE2v3(input_shape=input_shape)
-    if args.effect != "resdec" and args.effect != "resinc" and args.pretrained_model is not None:
-        model = model.load(args.pretrained_model, map_location=device)
+        model.to(device)
+        if args.pretrained_model is not None:
+            model = model.load(args.pretrained_model, map_location=device)
+        print("\nmodel.input_shape[::-1]", model.input_shape[::-1])
+        print(f"SUMMARY OF MODEL USING (3,108,192) \n{summary(model, (3,108,192))}")
     if args.warmstart is not None:
         model = model.load(args.warmstart, map_location=device)
     NB_EPOCH = args.epochs - args.start_epochs
@@ -104,6 +142,7 @@ def main_pytorch_model():
     
     randstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     newdir = f"./results_baseline2/BASELINE2-{model._get_name()}-{args.effect}-{input_shape[0]}x{input_shape[1]}-{int(dataset.get_total_samples()/1000)}samples-{args.epochs}epoch-{args.outdir_id}-{timestr}-{randstr}"
+    print(f"Saving results to {newdir}")
     if not os.path.exists(newdir):
         # os.mkdir(newdir,  mode=0o777)
         os.makedirs(newdir, exist_ok=True)
@@ -139,7 +178,7 @@ def main_pytorch_model():
             if i % logfreq == logfreq-1:  # print every 2000 mini-batches
                 print('[%d, %5d] loss: %.7f' %
                       (epoch + 1, i + 1, running_loss / logfreq), flush=True)
-                if (running_loss / logfreq) < lowest_loss:
+                if (running_loss / logfreq) < lowest_loss and epoch > 100:
                     print(f"New best model! MSE loss: {running_loss / logfreq}", flush=True)
                     model_name = f"./{newdir}/model-{iteration}-epoch{(epoch + args.start_epochs):03d}-best{best_model_count:03d}.pt"
                     print(f"Saving model to {model_name}", flush=True)
@@ -150,9 +189,9 @@ def main_pytorch_model():
                     lowest_loss = running_loss / logfreq
                 running_loss = 0.0
         print(f"Finished {epoch=}", flush=True)
-        model_name = f"./{newdir}/model-{iteration}-epoch{(epoch + args.start_epochs):03d}.pt"
-        print(f"Saving model to {model_name}", flush=True)
-        torch.save(model, model_name)
+        # model_name = f"./{newdir}/model-{iteration}-epoch{(epoch + args.start_epochs):03d}.pt"
+        # print(f"Saving model to {model_name}", flush=True)
+        # torch.save(model, model_name)
         # if loss < 0.000001:
         #     print(f"Loss at {loss}; quitting training...")
         #     break
@@ -163,8 +202,8 @@ def main_pytorch_model():
     model_name = f'./{newdir}/model-{iteration}.pt'
     torch.save(model, model_name)
 
-    # delete models from previous epochs
-    # print("Deleting models from previous epochs...", flush=True)
+    # delete weights from previous epochs
+    # print("Deleting weights from previous epochs...", flush=True)
     # for epoch in range(NB_EPOCH):
     #     os.remove(f"./{newdir}/model-{iteration}-epoch{epoch:03d}.pt")
     print(f"Saving model to {model_name}", flush=True)

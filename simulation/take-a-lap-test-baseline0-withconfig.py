@@ -1,4 +1,8 @@
 import sys
+sys.path.append("C:/Users/Meriel/Documents/GitHub/BeamNGpy/src")
+sys.path.append("C:/Users/Meriel/Documents/GitHub/IFAN")
+sys.path.append("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation")
+sys.path.append("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation/DAVE2/")
 from pathlib import Path
 import string
 import pickle
@@ -158,6 +162,9 @@ def setup_beamng(default_scenario, spawn_pos, rot_quat, road_id, reverse=False, 
     bng.load_scenario(scenario)
     bng.start_scenario()
     ai_line, bng = create_ai_line_from_road_with_interpolation(spawn_pos, bng, road_id)
+    if topo_id == "extra_windingtrack" or topo_id == "Rturncommercialunderpass":
+        centerline.reverse()
+        centerline_interpolated.reverse()
     bng.pause()
     assert vehicle.skt
     return vehicle, bng, scenario
@@ -180,9 +187,10 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
-    pitch = vehicle.state['pitch'][0]
-    roll = vehicle.state['roll'][0]
-    z = vehicle.state['pos'][2]
+    vehicle.update_vehicle()
+    sensors = bng.poll_sensors(vehicle)
+    image = sensors['front_cam']['colour'].convert('RGB')
+    image.save(f"./starting-images/start-{topo}-orig.jpg")
     spawn = spawn_point(default_scenario, road_id, reverse=reverse, seg=seg)
 
     wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
@@ -199,7 +207,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         sensors = bng.poll_sensors(vehicle)
         kph = ms_to_kph(sensors['electrics']['wheelspeed'])
         # vehicle.control(throttle=1., steering=0., brake=0.0)
-        steering = line_follower(vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo)
+        steering = line_follower(centerline_interpolated, vehicle.state['front'], vehicle.state['pos'], vehicle.state['dir'], topo, vehicle.state, vehicle.get_bbox())
         vehicle.control(throttle=0.55, steering=steering, brake=0.0)
         bng.step(1, wait=True)
     while damage <= 1:
@@ -265,8 +273,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     cv2.destroyAllWindows()
 
     deviation = calc_deviation_from_center(centerline, traj)
-    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'pitch': round(pitch,3),
-               'roll':round(roll,3), "z":round(z,3), 'final_img':final_img, 'deviation':deviation
+    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'final_img':final_img, 'deviation':deviation
                }
     return results
 
@@ -282,7 +289,6 @@ def zero_globals():
 def main(topo_id, spawn_pos, rot_quat, cluster, hash="000", detransf_id=None, transf_id=None):
     global base_filename
     zero_globals()
-    # model_name = "F:/dave2-base-models/DAVE2v3-108x192-145samples-5000epoch-5364842-7_4-17_15-XACCPQ-140EPOCHS/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch126-best044.pt"
     model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
@@ -298,7 +304,7 @@ def main(topo_id, spawn_pos, rot_quat, cluster, hash="000", detransf_id=None, tr
     distances, deviations, trajectories, runtimes = [], [], [], []
     runs = 5
 
-    filepathroot = f"{'/'.join(model_name.split('/')[:-1])}/{vqvae_id}/{transf_id}/{hash}/{vqvae_id}-{transf_id}-{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
+    filepathroot = f"simresults/{vqvae_id}-{transf_id}-{hash}/{default_scenario}-{road_id}-{topo_id}topo-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
@@ -360,6 +366,8 @@ def summarize_results(all_results):
           f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
           f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
           )
+
+
 def parse_args():
     parser = argparse.ArgumentParser(prog='ProgramName', description='What the program does',
                                      epilog='Text at the bottom of help')
@@ -369,45 +377,10 @@ def parse_args():
     return args
 
 
-def update_rot(config_topo_id, rot_quat):
-    if config_topo_id == "extra_utahlong":
-        # rot_quat = rot_quat * -1
-        rot_quat = turn_X_degrees(rot_quat, degrees=150)
-    elif config_topo_id == "Rturncommercialunderpass":
-        rot_quat = turn_X_degrees(rot_quat, degrees=90)
-    elif config_topo_id == "Lturnpasswarehouse":
-        rot_quat = turn_X_degrees(rot_quat, degrees=180)
-    elif config_topo_id == "extra_westunderpasses":
-        rot_quat =  turn_X_degrees(rot_quat, degrees=180)
-    return rot_quat
-
-
-
-def line_follower(front, pos, rot_quat, topo=None):
-    global centerline_interpolated
-    distance_from_centerline = dist_from_line(centerline_interpolated, front)
-    dist = min(distance_from_centerline)
-    coming_index = 3
-    i = np.where(distance_from_centerline == dist)[0][0]
-    next_point = centerline_interpolated[(i + coming_index) % len(centerline_interpolated)]
-    # next_point2 = centerline_interpolated[(i + coming_index*2) % len(centerline_interpolated)]
-    # theta = angle_between(vehicle.state, next_point)
-    vehicle_angle = math.atan2(front[1] - pos[1], front[0] - pos[0])
-    waypoint_angle = math.atan2((next_point[1] - front[1]), (next_point[0] - front[0]))
-    inner_angle = vehicle_angle - waypoint_angle
-    theta = math.atan2(math.sin(inner_angle), math.cos(inner_angle))
-    if topo == "extra_windingtrack":
-        theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle))
-    elif topo == "Rturn_servicecutthru" or topo == "extra_westunderpasses":
-        theta = math.atan2(-math.sin(inner_angle), math.cos(inner_angle)) / (2 * math.pi)
-    action = theta / (2 * math.pi)
-    return action
-
-
 if __name__ == '__main__':
     logging.getLogger('matplotlib.font_manager').disabled = True
     logging.getLogger('PIL').setLevel(logging.WARNING)
-    df = pd.read_csv("./config-segments_K6U1FE.csv")  # swapped xy, reversed x - math.pi
+    df = pd.read_csv("./config-segments_inuse.csv")  # swapped xy, reversed x - math.pi
     hash = randstr()
     df = df.reset_index()  # make sure indexes pair with number of rows
     random.seed(1703)
@@ -419,7 +392,4 @@ if __name__ == '__main__':
         cluster = row["SEGNUM"]
         cutoff = parse_list_from_string(row["END"])
         rot_quat = update_rot(config_topo_id, rot_quat)
-        # results = main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id)
         results = main(config_topo_id, spawn_pos, rot_quat, cluster, hash=hash, transf_id=args.effect)
-
-# NOTE: BEAMNG X AND Y ARE TRANSPOSED AND X AXIS IS FLIPPED (NEGATED)

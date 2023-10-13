@@ -3,7 +3,7 @@ import sys
 import os, cv2, csv
 from DAVE2pytorch import DAVE2PytorchModel
 import kornia
-
+import math
 from PIL import Image
 import copy
 from scipy import stats
@@ -37,7 +37,7 @@ def striplastchars(s):
 
 class MultiDirectoryDataSequence(data.Dataset):
     def __init__(self, root=None, RRL_dir=None, image_size=(100,100), transform=None,
-                 robustification=False, noise_level=10, sample_id="PREDICTION", effect=None):
+                 robustification=False, noise_level=10, sample_id="PREDICTION", max_dataset_size=None, effect=None):
         """
         Args:
             root_dir (string): Directory with all the images.
@@ -57,11 +57,13 @@ class MultiDirectoryDataSequence(data.Dataset):
         self.all_image_paths = []
         self.dfs_hashmap = {}
         self.dirs = []
+        self.max_dataset_size = max_dataset_size
         if self.root is not None:
             self.process_basemodel_dirs()
         if RRL_dir is not None:
             self.process_RRL_dir()
         self.cache = {}
+        self.printed = False
 
     def process_RRL_dir(self):
         skipcount = 0
@@ -87,6 +89,56 @@ class MultiDirectoryDataSequence(data.Dataset):
                     image_paths.sort(key=lambda p: int(striplastchars(p.stem)))
                     self.image_paths_hashmap[p] = copy.deepcopy(image_paths)
                     self.size += len(image_paths)
+        print(f"Full dataset size: {self.size=}")
+        print(f"{self.max_dataset_size=}")
+        if self.max_dataset_size is not None:
+            if self.size < self.max_dataset_size:
+                print(f"Dataset size is {self.size} ({self.max_dataset_size - self.size} less than {self.max_dataset_size=}. Not limiting dataset size.)")
+                exit(0)
+            else:
+                ratio = (self.size - self.max_dataset_size) / self.size 
+                for key in self.dfs_hashmap.keys():
+                    # print(f"\n{key=}")
+                    # print(f"dataframe size before drop: {self.dfs_hashmap[key].shape[0]}")
+                    df_size = self.dfs_hashmap[key].shape[0]
+                    deductible = math.ceil(self.dfs_hashmap[key].shape[0] * ratio)
+                    # print(f"{deductible=} \t{ratio=}")
+                    drop_index = pd.RangeIndex(start=self.dfs_hashmap[key].index[df_size - deductible ], stop=self.dfs_hashmap[key].index[self.dfs_hashmap[key].shape[0]-1])
+                    # print(f"{drop_index=}")
+                    self.dfs_hashmap[key].drop(drop_index, axis=0, inplace = True)
+                    #self.dfs_hashmap[key].drop(deductible, inplace = True)
+                    # print(f"dataframe size after drop: {self.dfs_hashmap[key].shape[0]}", flush=True)
+                dropped_dataset_size = 0
+                for key in self.dfs_hashmap.keys():
+                    dropped_dataset_size += self.dfs_hashmap[key].shape[0]
+                print(f"{dropped_dataset_size=}")
+                self.size = dropped_dataset_size
+                # print(f"{all_image_paths=}")
+        all_image_paths = []
+        image_paths_hashmap = {}
+        for key in self.dfs_hashmap.keys():
+            image_paths = []
+            # print(f"{self.dfs_hashmap[key].columns=}")
+            for pp in Path(key).iterdir():
+                # if pp.suffix.lower() in [".jpg", ".png", ".jpeg", ".bmp"] and "transf" not in pp.name:
+                if pp.suffix.lower() in [".jpg", ".png", ".jpeg", ".bmp"] and "sample-base" in pp.name:
+                    try:
+                        df_index = self.dfs_hashmap[key].index[self.dfs_hashmap[key]['IMG'] == pp.name]
+                    except KeyError as e:
+                        df_index = self.dfs_hashmap[key].index[self.dfs_hashmap[key]['filename'] == pp.name]
+                    if not df_index.empty:
+                        image_paths.append(pp)
+                        all_image_paths.append(pp)
+            # print(f"{pp=} \t{pp.name=}")
+            image_paths.sort(key=lambda p: int(stripleftchars(p.stem)))
+            image_paths_hashmap[key] = copy.deepcopy(image_paths)
+        
+        print("Finished intaking image paths from {}! (size {})".format(self.root, self.size))
+        self.image_paths_hashmap = image_paths_hashmap
+        self.all_image_paths = all_image_paths
+        print(f"Dataset size is {len(self.all_image_paths)}")
+        # self.df = pd.read_csv(f"{self.root}/data.csv")
+  
 
     def get_total_samples(self):
         return self.size
@@ -164,6 +216,7 @@ class MultiDirectoryDataSequence(data.Dataset):
         pathobj = Path(img_name)
         df = self.dfs_hashmap[f"{pathobj.parent}"]
         df_index = df.index[df['IMG'] == img_name.name]
+        # print(df.loc[df_index, self.sample_id])
         orig_y_steer = df.loc[df_index, self.sample_id].item()
         y_throttle = df.loc[df_index, 'THROTTLE_INPUT'].item()
         y_steer = copy.deepcopy(orig_y_steer)
@@ -178,8 +231,9 @@ class MultiDirectoryDataSequence(data.Dataset):
         
         if sys.getsizeof(self.cache) < 8 * 1.0e10:
             self.cache[idx] = orig_sample
-        else:
+        elif not self.printed:
             print(f"{len(self.cache.keys())=}")
+            self.printed = True
         return sample
 
     def get_outputs_distribution(self):

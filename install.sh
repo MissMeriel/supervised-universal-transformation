@@ -7,7 +7,7 @@ python3.8 -m venv .venv-sut
 pip install -r requirements.txt
 pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
 pip install --upgrade torch torchvision
-pip install blurgenerator discorpy scikit-learn pandas
+pip install blurgenerator discorpy scikit-learn torchsummary
 pip install msgpack pyopengl # for beamngpy
 pip install cog easydict  termcolor torch-optimizer tqdm ptflops # for IFAN
 git clone git@github.com:MissMeriel/IFAN.git

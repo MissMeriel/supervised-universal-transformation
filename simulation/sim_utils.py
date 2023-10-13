@@ -1347,6 +1347,7 @@ def update_rot(config_topo_id, rot_quat):
         rot_quat = turn_X_degrees(rot_quat, degrees=90)
     return rot_quat
 
+
 def line_follower(centerline_interpolated, front, pos, rot_quat, topo=None, vehicle_state=None, bbox=None):
     distance_from_centerline = dist_from_line(centerline_interpolated, front)
     coming_index = 3 #7
@@ -1461,3 +1462,12 @@ def plot_intersection_with_CV2(vehicle_state, road_seg, next_pt, bbox, steering)
     cv2.imshow("plot", img)
     cv2.waitKey(1)
     plt.close('all')
+
+def plot_input(timestamps, input, input_type, run_number=0):
+    plt.plot(timestamps, input)
+    plt.xlabel('Timestamps')
+    plt.ylabel('{} input'.format(input_type))
+    plt.title("{} over time".format(input_type))
+    plt.savefig("Run-{}-{}.png".format(run_number, input_type))
+    plt.show()
+    plt.pause(0.1)

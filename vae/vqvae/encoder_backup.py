@@ -8,7 +8,7 @@ from vqvae.models.residual import ResidualStack
 
 class Encoder(nn.Module):
     """
-    This is the q_theta (z|x) network. Given a data sample x q_theta 
+    This is the q_theta (z|x) network. Given a data sample x q_theta
     maps to the latent space x -> z.
 
     For a VQ VAE, q_theta outputs parameters of a categorical distribution.
