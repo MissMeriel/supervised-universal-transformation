@@ -49,6 +49,8 @@ parser.add_argument("--topo",  type=str, default=None)
 parser.add_argument("--basemodel",  type=str, default=None)
 parser.add_argument("--transf",  type=str, default="fisheye")
 parser.add_argument("--id",  type=str, default="")
+parser.add_argument("-save", action="store_true")
+parser.add_argument("--arch_id", type=int, default=None)
 
 args = parser.parse_args()
 print(f"{args=}", flush=True)
@@ -66,9 +68,9 @@ Load data and define batch data loaders
 training_data, validation_data, training_loader, validation_loader, x_train_var = utils.load_data_and_data_loaders(
     args.dataset, args.batch_size, shuffle=False, topo=args.topo, transf=args.transf)
 """
-Set up VQ-VAE model with components defined in ./models/ folder
+Set up VQ-VAE model with components defined in ./vqvae/ folder
 """
-model = VQVAE(args.n_hiddens, args.n_residual_hiddens, args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=args.transf).to(device)
+model = VQVAE(args.n_hiddens, args.n_residual_hiddens, args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=args.transf, arch_id=args.arch_id).to(device)
 checkpoint = torch.load(args.weights, map_location=device)
 model.load_state_dict(checkpoint["model"])
 model = model.eval()
@@ -156,7 +158,7 @@ def validate():
         results["n_updates"] = i
         results["predictions"].extend(prediction_loss)
 
-        if i % args.log_interval == 0:
+        if i % args.log_interval == 0 and args.save:
             save_validation(x, x_transf, x_hat, batch=i, sample=sample)
 
     print("prediction loss:", sum(results["predictions"]) / len(results["predictions"]), flush=True)

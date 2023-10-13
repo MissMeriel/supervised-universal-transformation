@@ -29,6 +29,7 @@ from beamngpy import ProceduralCube
 # sys.path.append(f'{args.path2src}/GitHub/BeamNGpy/src/')
 from wand.image import Image as WandImage
 from torchvision.transforms import Compose, ToPILImage, ToTensor
+from resnet import ResNet50, ResNet101, ResNet152
 
 # globals
 integral, prev_error = 0.0, 0.0
@@ -828,11 +829,8 @@ def get_transf(transf_id):
 
 def main():
     global base_filename
-    model_name = "../models/weights/dave2-weights/model-DAVE2v3-lr1e4-100epoch-batch64-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-135x240-noiseflipblur.pt" # orig model
-    model_name = "../models/retrained-lighterblur-noflip-fixednoise/model-fixnoise-DAVE2v3-135x240-lr1e4-100epoch-64batch-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-noiseflipblur-best.pt"
-    # model_name = "C:/Users/Meriel/Documents/GitHub/deeplearning-input-rectification/models/weights/fixed-base-model/model-DAVE2v3-135x240-lr1e4-100epoch-64batch-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-noiseflipblur.pt"
-    from resnet import ResNet50, ResNet101, ResNet152
-    model_name = "../models/weights/model-ResNet-randomblurnoise-135x240-lr1e4-500epoch-64batch-lossMSE-82Ksamples-INDUSTRIALandHIROCHIandUTAH-noiseflipblur-epoch121.pt"
+
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
 

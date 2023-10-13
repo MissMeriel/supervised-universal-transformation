@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from vqvae.models.residual import ResidualStack
+from vqvae.residual import ResidualStack
 
 
 class Decoder(nn.Module):

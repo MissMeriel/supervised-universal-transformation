@@ -82,16 +82,6 @@ def plot_trajectory(traj, title="Trajectory", label1="car traj."):
     plt.pause(0.1)
 
 
-def plot_input(timestamps, input, input_type, run_number=0):
-    plt.plot(timestamps, input)
-    plt.xlabel('Timestamps')
-    plt.ylabel('{} input'.format(input_type))
-    plt.title("{} over time".format(input_type))
-    plt.savefig("Run-{}-{}.png".format(run_number, input_type))
-    plt.show()
-    plt.pause(0.1)
-
-
 def road_analysis(bng, road_id):
     global centerline, roadleft, roadright
     print("Performing road analysis...")
@@ -115,7 +105,6 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
     global centerline, centerline_interpolated
     line, points, point_colors, spheres, sphere_colors, traj = [], [], [], [], [], []
     actual_middle, adjusted_middle = road_analysis(bng, road_id)
-    # print(f"{actual_middle[0]=}, {actual_middle[-1]=}")
     middle = actual_middle
     count = 0
     # set up adjusted centerline
@@ -138,10 +127,6 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
         spheres.append([p[0], p[1], p[2], 0.25])
         sphere_colors.append([1, 0, 0, 0.8])
         count += 1
-    # print("spawn point:{}".format(spawn))
-    # print("beginning of script:{}".format(middle[0]))
-    # plot_trajectory(traj, "Points on Script (Final)", "AI debug line")
-    # centerline = copy.deepcopy(traj)
     centerline_interpolated = copy.deepcopy(traj)
 
     bng.add_debug_line(points, point_colors,
@@ -197,7 +182,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
-    image.save(f"./start-{topo}-{transf}.jpg")
+    # image.save(f"./start-{topo}-{transf}.jpg")
     print(f"{transf=} \t {detransf=}")
     damage = wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
     prev_error = setpoint
@@ -302,29 +287,31 @@ def zero_globals():
 
 
 from vqvae.models.vqvae import VQVAE
-def main(topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster="000", hash="000", transf_id=None, detransf_id=None, cuton_pt=None, cutoff_pt=None):
+import torchsummary
+def main(topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster="000", hash="000", transf_id=None, detransf_id=None, cuton_pt=None, cutoff_pt=None, arch_id=None):
     global base_filename, centerline, centerline_interpolated
     zero_globals()
     model_name="../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
 
-    vqvae = VQVAE(128, 32, 2, 512, 64, .25, transf=transf_id).eval().to(device)
+    vqvae = VQVAE(128, 32, 2, 512, 64, .25, transf=transf_id, arch_id=arch_id).eval().to(device)
     checkpoint = torch.load(vqvae_name, map_location=device)
     vqvae.load_state_dict(checkpoint["model"])
+    # torchsummary.summary(vqvae, (3, 108, 192))
     vqvae_id = f"baseline4{count}K"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
     img_dims, fov, transf = get_transf(transf_id)
-    runs = 5
-    filepathroot = f"simresults/{vqvae_id}-{transf_id}-{hash}/{vqvae_id}-{transf_id}-{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
+    runs = 25
+    vqvae_literal = vqvae_name.split("/")[-1].replace('.pth', '')
+    filepathroot = f"simresults/bestfisharchreruns-{runs}RUNS-{vqvae_id}-{transf_id}-arch{arch_id}-{hash}/{vqvae_literal}/{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     print(f"TOPO_ID={topo_id} \tTRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
     random.seed(1703)
     vehicle, bng, scenario = setup_beamng(default_scenario, spawn_pos, rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='F:/BeamNG.researchINSTANCE4', port=64156, topo_id=topo_id)
-    # if topo_id == "Rturncommercialunderpass":
+                                          beamnginstance='F:/BeamNG.researchINSTANCE3', port=64356, topo_id=topo_id)
     if topo_id == "extra_windingtrack" or topo_id == "Rturncommercialunderpass":
         centerline.reverse()
         centerline_interpolated.reverse()
@@ -335,7 +322,7 @@ def main(topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster="000", hash="0
                                vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
         results['distance'] = get_distance_traveled(results['traj'])
         # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
-        print(f"\nBASE MODEL USING IMG DIMS {img_dims} RUN {i}:"
+        print(f"\nBASE MODEL {transf_id}  {topo_id} RUN {i}:"
               f"\n\tdistance={results['distance']:1f}"
               f"\n\tavg dist from center={results['deviation']['mean']:3f}")
         distances.append(results['distance'])
@@ -409,9 +396,14 @@ def get_vqvae_name(transf_id, count=10):
     elif transf_id == "mediumdepth" and count == 10:
         return "../weights/baseline4-10K/vqvae_UUST_depth_samples10000_epochs500_52054974_mon_aug_7_10_16_44_2023.pth"
     elif transf_id == "resinc" and count == 10:
-        return "../weights/baseline4-10K/vqvae_UUST_resinc_samples10000_epochs309_52614507_mon_aug_21_15_14_38_2023.pth"
+        # return "../weights/baseline4-10K/vqvae_UUST_resinc_samples10000_epochs309_52614507_mon_aug_21_15_14_38_2023.pth"
+        return "../weights/baseline4-10K/portal409110_vqvae10K_predlossweight1.0_resinc_bestmodel486.pth"
     elif transf_id == "resdec" and count == 10:
-        return "../weights/baseline4-10K/vqvae_UUST_resdec_samples10000_epochs500_52036393_mon_aug_7_00_37_04_2023.pth"
+        # return "../weights/baseline4-10K/vqvae_UUST_resdec_samples10000_epochs500_52036393_mon_aug_7_00_37_04_2023.pth"
+        return "../weights/baseline4-10K/portal453967_vqvae10K_resdec_newarch_predlossweight1.0_bestmodel479.pth"
+
+    elif transf_id == "resdec" and count == 50:
+        return "../weights/baseline4-50K/portal453968_vqvae50K_resdec_newarch_predloss1.0_bestmodel415.pth"
 
     elif transf_id == "mediumfisheye" and count == 95:
         return "../weights/baseline4-95K/vqvae95K_fisheye_epoch178.pth"
@@ -430,23 +422,50 @@ if __name__ == '__main__':
     # detransf_ids = ["mediumdepth", "mediumfisheye","resinc", "resdec", ]
     # hashes = [randstr() for t in detransf_ids]
     hash = randstr()
-    counts = [10, 95]
-    count = 10
+    count = 25
+    arch_id = None
+
+    # EXPERIMENTAL VQVAE ENCODER ARCHS
+    vqvae_name = "../weights/baseline4-10K/portal743150-vqvae_fisheye_newencoderarch2_samples10000_pred_weight1.0_bestmodel483.pth" # SIMMED, BEST SO FAR
+    # vqvae_name = "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth" # SIMMED, BEST SO FAR
+    # vqvae_name = "../weights/baseline4-10K/portal743149_vqvae_UUST_fisheye_newencoderarch1_samples10000_pred_weight1.0_epochs500_bestmodel498.pth" # SIMMED
+    # vqvae_name = "../weights/baseline4-10K/portal743151_vqvae_fisheye_newencoderarch3_samples10000_pred_weight1.0_epochs500_bestmodel493.pth" # SIMMED
+    # vqvae_name = "../weights/baseline4-10K/portal743152_vqvae_depth_newencoderarch2_samples10000_predweight1.0_epochs500_bestmodel482.pth" # SIMMED
+    # vqvae_name = "../weights/baseline4-10K/portal743153_vqvae_depth_newencoderarch1_samples10000_predweight1.0_epochs500_bestmodel498.pth" # SIMMED, BEST SO FAR
+    # vqvae_name = "../weights/baseline4-50K/portal752574_vqvae_depth_newencoderarch1_samples50K_predweight1.0_bestmodel460.pth" # SIMMED, BEST SO FAR
+    # vqvae_name = "../weights/baseline4-50K/portal752572_vqvae50K_UUST_fisheye_newencoderarch3_predweight1.0_bestmodel436.pth" # SIMMED
+
+
+    # SECOND ROUND OF EXPERIMENTAL ENCODER ARCHS
+    # vqvae_name = "../weights/baseline4-10K/portal864823_vqvae10K_fisheye_newencoderarch4_predweight1.0_bestmodel499.pth"
+    # vqvae_name = "../weights/baseline4-10K/portal864822_vqvae10K_depth_newencoderarch4_predweight1.0_bestmodel450.pth"
+    # vqvae_name = "../weights/baseline4-10K/portal863194_vqvae10K_depth_newencoderarch3_predweight1.0_bestmodel490.pth" # 0.014483165 lower training loss, use this one
+    # vqvae_name = "../weights/baseline4-10K/portal863175_vqvae10K_depth_newencoderarch3_predweight1.0_bestmodel499.pth" # 0.014921573 training loss
+
+    # THIRD ROUND
+    vqvae_names = [#"../weights/baseline4-10K/portal743150_vqvae_fisheye_newencoderarch2_samples10K_pred_weight1.0_epochs500_bestmodel483.pth",
+                   # "../weights/baseline4-10K/portal743149_vqvae_UUST_fisheye_newencoderarch1_samples10000_pred_weight1.0_epochs500_bestmodel498.pth"
+                   "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth"
+                    ]
     df = df.reset_index()  # make sure indexes pair with number of rows
 
     # for i, detransf_id in enumerate(detransf_ids):
     random.seed(1703)
     args = parse_args()
-    detransf_id = args.effect
-
-    for index, row in df.iterrows():
-        config_topo_id = row["TOPOID"]
-        spawn_pos = parse_list_from_string(row["SPAWN"])
-        rot_quat = parse_list_from_string(row["ROT_QUAT"])
-        cluster = row["SEGNUM"]
-        cutoff = parse_list_from_string(row["END"])
-        cuton_pt = parse_list_from_string(row["START"])
-        cutoff_pt = parse_list_from_string(row["CUTOFF"])
-        results = main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
-
-# NOTE: BEAMNG X AND Y ARE TRANSPOSED AND X AXIS IS FLIPPED (NEGATED)
+    # detransf_id = args.effect
+    effects = ["mediumfisheye", "mediumfisheye"]
+    arch_ids = [2, 1]
+    for i, vqvae_name in enumerate(vqvae_names):
+        detransf_id = effects[i]
+        arch_id = arch_ids[i]
+        for index, row in df.iterrows():
+            # vqvae_name = get_vqvae_name(detransf_id, count=count)
+            print(f"{vqvae_name=}")
+            config_topo_id = row["TOPOID"]
+            spawn_pos = parse_list_from_string(row["SPAWN"])
+            rot_quat = parse_list_from_string(row["ROT_QUAT"])
+            cluster = row["SEGNUM"]
+            cutoff = parse_list_from_string(row["END"])
+            cuton_pt = parse_list_from_string(row["START"])
+            cutoff_pt = parse_list_from_string(row["CUTOFF"])
+            results = main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt, arch_id=arch_id)
