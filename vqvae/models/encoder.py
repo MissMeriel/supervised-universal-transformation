@@ -65,9 +65,8 @@ class Encoder(nn.Module):
                 nn.Conv2d(h_dim, h_dim, kernel_size=kernel-2,
                         stride=stride, padding=0),
                 ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-            ) # best so far   x_hat.shape=torch.Size([1, 3, 104, 188])
+            )
         elif transf == "depth" or transf == "mediumdepth":
-<<<<<<< HEAD
                 if arch_id == 1:
                         self.conv_stack = nn.Sequential(
                                 nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel-2,
@@ -166,107 +165,6 @@ class Encoder(nn.Module):
                                         stride=stride, padding=1),
                                 ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
                         ) 
-=======
-            print(f"{in_dim=} {h_dim=}")
-            if arch_id == 1:
-                    self.conv_stack = nn.Sequential(
-                            nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel-2,
-                                    stride=stride-1, padding=1),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=0),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=0),
-                            ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                    ) # best so far   x_hat.shape=torch.Size([1, 3, 104, 188])
-            elif arch_id == 2:
-                    self.conv_stack = nn.Sequential(
-                            nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel-2,
-                                    stride=stride-1, padding=4),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=0),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim, h_dim, kernel_size=kernel,
-                                    stride=stride, padding=0),
-                            ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                    ) # best so far   x_hat.shape=torch.Size([1, 3, 104, 188])
-            elif arch_id == 3:  # identical to fisheye arch 1
-                    self.conv_stack = nn.Sequential(
-                        nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel - 2,
-                                  stride=stride - 1, padding=0),
-                        nn.ReLU(),
-                        nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel - 2,
-                                  stride=stride, padding=1),
-                        nn.ReLU(),
-                        nn.Conv2d(h_dim, h_dim, kernel_size=kernel - 2,
-                                  stride=stride, padding=0),
-                        ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                    )
-            elif arch_id == 4:  # identical to fisheye arch 2
-                self.conv_stack = nn.Sequential(
-                    nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel - 3,
-                              stride=stride - 1, padding=0),
-                    nn.ReLU(),
-                    nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel - 2,
-                              stride=stride, padding=0),
-                    nn.ReLU(),
-                    nn.Conv2d(h_dim, h_dim, kernel_size=kernel - 2,
-                              stride=stride, padding=0),
-                    ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                )
-        elif transf == "fisheye" or transf == "mediumfisheye":
-            if arch_id == 1:
-                    self.conv_stack = nn.Sequential(
-                            nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel-2,
-                                    stride=stride-1, padding=0),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=1),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=0),
-                            ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                    ) # best so far   x_hat.shape=torch.Size([1, 3, 104, 188])
-            elif arch_id == 2:
-                    self.conv_stack = nn.Sequential(
-                            nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel-3,
-                                    stride=stride-1, padding=0),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=0),
-                            nn.ReLU(),
-                            nn.Conv2d(h_dim, h_dim, kernel_size=kernel-2,
-                                    stride=stride, padding=0),
-                            ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                    ) # best so far   x_hat.shape=torch.Size([1, 3, 104, 188])
-            elif arch_id == 3:
-                    self.conv_stack = nn.Sequential(
-                        nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel - 3,
-                                  stride=stride, padding=0),
-                        nn.ReLU(),
-                        nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel - 2,
-                                  stride=stride, padding=1),
-                        nn.ReLU(),
-                        nn.Conv2d(h_dim, h_dim, kernel_size=kernel,
-                                  stride=stride - 1, padding=1),
-                        ResidualStack(
-                            h_dim, h_dim, res_h_dim, n_res_layers)
-                    )
-            elif arch_id == 4:
-                self.conv_stack = nn.Sequential(
-                    nn.Conv2d(in_dim, h_dim // 2, kernel_size=kernel - 3,
-                              stride=stride - 1, padding=0),
-                    nn.ReLU(),
-                    nn.Conv2d(h_dim // 2, h_dim, kernel_size=kernel - 2,
-                              stride=stride, padding=0),
-                    nn.ReLU(),
-                    nn.Conv2d(h_dim, h_dim, kernel_size=kernel - 1,
-                              stride=stride, padding=1),
-                    ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)
-                )
->>>>>>> 7b8f6d7fdec4e67963b45d9c7aaa2ef23c8d2ffb
 
     def forward(self, x):
             return self.conv_stack(x)

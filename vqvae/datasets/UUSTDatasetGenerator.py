@@ -2,6 +2,7 @@ import numpy as np
 import os, cv2, csv
 import math
 import kornia
+import sys
 
 from PIL import Image
 import copy
@@ -88,6 +89,7 @@ class TransformationDataSequence(data.Dataset):
         all_image_paths = []
         self.dfs_hashmap = {}
         self.dirs = []
+        self.printed = False
 
         for p in Path(root).iterdir():
 
@@ -174,14 +176,14 @@ class TransformationDataSequence(data.Dataset):
         return self.size #len(self.all_image_paths)
 
     def robustify(self, image_base, image_transf, y_steer):
-        if random.random() > 0.75:
+        if random.random() > 0.5:
             image_base = torch.flip(image_base, (2,))
             image_transf = torch.flip(image_transf, (2,))
             y_steer = -y_steer
-        if random.random() > 0.75:
+        if random.random() > 0.5:
             gauss = kornia.filters.GaussianBlur2d((3, 3), (1.5, 1.5))
             image_base = gauss(image_base[None])[0]
-        if random.random() > 0.75:
+        if random.random() > 0.5:
             gauss = kornia.filters.GaussianBlur2d((3, 3), (1.5, 1.5))
             image_transf = gauss(image_transf[None])[0]
         if self.noise_level is not None:
@@ -256,14 +258,33 @@ class TransformationDataSequence(data.Dataset):
 
         sample = {"image_base": image_base, "image_transf": image_transf, "steering_input": torch.FloatTensor([y_steer]), "img_name": str(img_name), "all": torch.FloatTensor([y_steer])}
         orig_sample = {"image_base": image_base_orig, "image_transf": image_transf_orig,"steering_input": torch.FloatTensor([orig_y_steer]), "img_name": str(img_name), "all": torch.FloatTensor([orig_y_steer])}
-        try:
-            self.cache[idx] = orig_sample
-        except MemoryError as e:
-            print(f"Memory error adding sample to cache: {e}", flush=True)
-        # if sys.getsizeof(self.cache) < 8 * 1.0e10:
+        
+
+        # try:
         #     self.cache[idx] = orig_sample
-        # else:
-        #     print(f"{len(self.cache.keys())=}")
+        # except MemoryError as e:
+            # if not self.printed:
+        #       print(f"Memory error adding sample to cache: {e}", flush=True)
+                # print(f"{len(self.cache.keys())=}")
+                # print(f"{sys.getsizeof(self.cache)=}")
+                # self.printed = True
+        if self.transf == "resinc":
+            if len(self.cache.keys()) < 10000: #14563:
+                self.cache[idx] = orig_sample
+            else:
+                if not self.printed :
+                    print(f"{len(self.cache.keys())=}")
+                    print(f"{sys.getsizeof(self.cache)=}")
+                    self.printed = True
+        else:
+            # lynx04 max cache keys len 43691, max size of cache 2621536 bytes
+            if sys.getsizeof(self.cache) < 2. * 1e6: # 8 * 1.0e10:
+                self.cache[idx] = orig_sample
+            else:
+                if not self.printed :
+                    print(f"{len(self.cache.keys())=}")
+                    print(f"{sys.getsizeof(self.cache)=}")
+                    self.printed = True
         return sample
 
     def get_inputs_distribution(self):
@@ -296,6 +317,14 @@ class TransformationDataSequence(data.Dataset):
             arr = df['PREDICTION'].to_numpy()
             all_outputs = np.concatenate((all_outputs, arr), axis=0)
         return np.array(all_outputs)
+
+
+    def query_cache_size(self):
+        print(f"{sys.getsizeof(self.cache)=} bytes")
+        print(f"{sys.getsizeof(self.cache) / 1e6} Mb")
+        print(f"{sys.getsizeof(self.cache) / 1e9} Gb")
+        return sys.getsizeof(self.cache)
+
 
     ##################################################
     # ANALYSIS METHODS
