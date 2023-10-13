@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('-m', '--pretrained_model', type=str, default=None, help='path to pretrained model')
     parser.add_argument('-s', '--start_epochs', type=int, default=0, help='pretrained model epochs')
     parser.add_argument('-b', '--batch', type=int, default=64, help='batch size')
-    parser.add_argument('-l', '--max_dataset_size', type=int, default=1000, help='max dataset size')
+    parser.add_argument('-l', '--max_dataset_size', type=int, default=10000, help='max dataset size')
     parser.add_argument('-t', '--dirtag', type=str, default="", help='directory identifier')
     parser.add_argument('-w', '--warmstart', type=str, default=None, help='path to warmstart weights')
 
