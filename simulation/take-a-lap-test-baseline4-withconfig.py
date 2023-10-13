@@ -1,7 +1,16 @@
+from __future__ import absolute_import
 import sys
+import os
+
+p = os.path.abspath(os.path.join(os.path.dirname(__file__), '../vae/'))
+current_path = os.path.abspath('.')
+print("vqvae path", p)
+print("current_path", current_path)
+sys.path.insert(0, p)
 sys.path.append("C:/Users/Meriel/Documents/GitHub/BeamNGpy/src")
 sys.path.append("C:/Users/Meriel/Documents/GitHub/IFAN")
 sys.path.append("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation")
+sys.path.append("..")
 from pathlib import Path
 import string
 import pickle
@@ -24,8 +33,9 @@ from beamngpy import BeamNGpy, Scenario, Vehicle, setup_logging, StaticObject, S
 from beamngpy.sensors import Camera, GForces, Electrics, Damage, Timer
 from sim_utils import *
 from transformations import transformations
-from transformations import detransformations
 import torchvision.transforms as T
+from vqvae.vqvae import VQVAE
+import torchsummary
 
 # globals
 integral, prev_error = 0.0, 0.0
@@ -182,6 +192,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     vehicle.update_vehicle()
     sensors = bng.poll_sensors(vehicle)
     image = sensors['front_cam']['colour'].convert('RGB')
+    # if "depth" in transf:
+    #     image = transformations.blur_with_depth_image(np.array(image), np.array(image_depth))
     # image.save(f"./start-{topo}-{transf}.jpg")
     print(f"{transf=} \t {detransf=}")
     damage = wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
@@ -286,12 +298,10 @@ def zero_globals():
     roadright = []
 
 
-from vqvae.models.vqvae import VQVAE
-import torchsummary
 def main(topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster="000", hash="000", transf_id=None, detransf_id=None, cuton_pt=None, cutoff_pt=None, arch_id=None):
     global base_filename, centerline, centerline_interpolated
     zero_globals()
-    model_name="../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
+    model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
 
@@ -426,7 +436,7 @@ if __name__ == '__main__':
     arch_id = None
 
     # EXPERIMENTAL VQVAE ENCODER ARCHS
-    vqvae_name = "../weights/baseline4-10K/portal743150-vqvae_fisheye_newencoderarch2_samples10000_pred_weight1.0_bestmodel483.pth" # SIMMED, BEST SO FAR
+    # vqvae_name = "../weights/baseline4-10K/portal743150-vqvae_fisheye_newencoderarch2_samples10000_pred_weight1.0_bestmodel483.pth" # SIMMED, BEST SO FAR
     # vqvae_name = "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth" # SIMMED, BEST SO FAR
     # vqvae_name = "../weights/baseline4-10K/portal743149_vqvae_UUST_fisheye_newencoderarch1_samples10000_pred_weight1.0_epochs500_bestmodel498.pth" # SIMMED
     # vqvae_name = "../weights/baseline4-10K/portal743151_vqvae_fisheye_newencoderarch3_samples10000_pred_weight1.0_epochs500_bestmodel493.pth" # SIMMED
@@ -445,16 +455,24 @@ if __name__ == '__main__':
     # THIRD ROUND
     vqvae_names = [#"../weights/baseline4-10K/portal743150_vqvae_fisheye_newencoderarch2_samples10K_pred_weight1.0_epochs500_bestmodel483.pth",
                    # "../weights/baseline4-10K/portal743149_vqvae_UUST_fisheye_newencoderarch1_samples10000_pred_weight1.0_epochs500_bestmodel498.pth"
-                   "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth"
-                    ]
-    df = df.reset_index()  # make sure indexes pair with number of rows
+                    "../weights/baseline4-10K/portal332881_vqvae10K_predlossweight1.0_fisheye_bestmodel495.pth",
+                    "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth",
 
+                    "../weights/baseline4-25K/portal882402_vqvae_resdec_25K_newarch_predweight1.0_bestmodel481.pth",
+                    "../weights/baseline4-25K/portal882427_vqvae_resinc_25K_newarch_predweight1.0_bestmodel409.pth",
+                    "../weights/baseline4-95K/portal882404_vqvae95K_resdec_full_newarch_predweight1.0_bestmodel326.pth",
+                    "../weights/baseline4-75K/portal882403_vqvae75K_resdec_newarch_predweight1.0_bestmodel477.pth",
+                    "",
+                    "",
+                    ]
+    # detransf_id = args.effect
+    effects = ["mediumfisheye", "mediumfisheye"]
+    arch_ids = [None, 2]
+    df = df.reset_index()  # make sure indexes pair with number of rows
     # for i, detransf_id in enumerate(detransf_ids):
     random.seed(1703)
     args = parse_args()
-    # detransf_id = args.effect
-    effects = ["mediumfisheye", "mediumfisheye"]
-    arch_ids = [2, 1]
+
     for i, vqvae_name in enumerate(vqvae_names):
         detransf_id = effects[i]
         arch_id = arch_ids[i]

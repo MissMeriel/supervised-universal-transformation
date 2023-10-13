@@ -375,20 +375,32 @@ def summarize_results(all_results):
           )
 
 
-def get_model_name(transf_id):
-    if transf_id == "mediumfisheye":
-        # return "../weights/baseline3/baseline3-fisheye-model-DAVE2v3-108x192-2296epoch-64batch-50Ksamples-epoch2180-best098.pt"
-        return "../weights/baseline3-50K/portal409517_baseline3_Tset50K_fisheye-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch2031-best071.pt" #RETRAINED
-    elif transf_id == "mediumdepth":
-        # return "../weights/baseline3/baseline3-depth-model-DAVE2v3-108x192-2085epoch-64batch-50Ksamples-epoch1706-best013.pt"
-        return "../weights/baseline3-50K/portal442655-depth-Tset-50K-108x192-epoch4572-best073.pt"
-    elif transf_id == "resinc":
-        # return "../weights/baseline3/model-baseline3-resinc-ONLY4523EPOCHS-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4400-best149.pt"
-        # return "../weights/baseline3-50K/portal432639-baseline3-resinc-Tset-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4844-best073.pt" # RETRAINED (INCORRECT MODEL SHAPE DO NOT USE)
-        return "../weights/baseline3/resinc-test-model-DAVE2v3-270x480-5000epoch-64batch-10Ksamples-epoch001-best002.pt" # TEST
-        return
-    elif transf_id == "resdec":
-        return "../weights/baseline3-50K/portal643840-resdec-Tset-54x96-5000epoch-epoch3995-best067.pt"
+def get_model_name(transf_id, count=50):
+    if count == 10:
+        if transf_id == "mediumfisheye":
+            return "../weights/baseline3-10K/portal738263_fisheye-Tset-108x192-10K-9_27-16_25-FCQTUCmodel-epoch4738-best117.pt"
+        elif transf_id == "mediumdepth":
+            pass
+        elif transf_id == "resinc":
+            pass
+        elif transf_id == "resdec":
+            return "../weights/baseline3-10K/portal644260_resdec_Tset-54x96-5000epoch-64batch-10Ksamples-epoch4826-best115.pt"
+    elif count == 25:
+        pass
+    elif count == 50:
+        if transf_id == "mediumfisheye":
+            return "../weights/baseline3-50K/portal409517_baseline3_Tset50K_fisheye-DAVE2v3-108x192-5000epoch-64batch-50Ksamples-epoch2031-best071.pt" #RETRAINED
+        elif transf_id == "mediumdepth":
+            return "../weights/baseline3-50K/portal442655-depth-Tset-50K-108x192-epoch4572-best073.pt"
+        elif transf_id == "resinc":
+            # return "../weights/baseline3-50K/portal432639-baseline3-resinc-Tset-DAVE2v3-270x480-5000epoch-64batch-50Ksamples-epoch4844-best073.pt" # RETRAINED (INCORRECT MODEL SHAPE DO NOT USE)
+            return "../weights/baseline3/resinc-test-model-DAVE2v3-270x480-5000epoch-64batch-10Ksamples-epoch001-best002.pt" # TEST
+        elif transf_id == "resdec":
+            return "../weights/baseline3-50K/portal643840-resdec-Tset-54x96-5000epoch-epoch3995-best067.pt"
+    elif count == 75:
+        pass
+    elif count == 95:
+        pass
 
 
 def parse_args():
