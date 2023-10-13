@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from vqvae.models.residual import ResidualStack
+from models.residual import ResidualStack
 
 
 class Decoder(nn.Module):
@@ -19,22 +19,22 @@ class Decoder(nn.Module):
 
     """
 
-    def __init__(self, in_dim, h_dim, n_res_layers, res_h_dim, transf=None, verbose=False):
+    def __init__(self, in_dim, h_dim, n_res_layers, res_h_dim, transf=None, arch_id=None, verbose=False):
         super(Decoder, self).__init__()
         kernel = 4
         stride = 2
         self.verbose = verbose
         self.inverse_conv_stack = nn.Sequential(
-            nn.ConvTranspose2d(
-                in_dim, h_dim, kernel_size=kernel-1, stride=stride-1, padding=1),
+            nn.ConvTranspose2d(in_dim, h_dim, 
+                               kernel_size=kernel-1, stride=stride-1, padding=1),
             ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers),
             nn.ConvTranspose2d(h_dim, h_dim // 2,
                                kernel_size=kernel, stride=stride, padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(h_dim//2, 3, kernel_size=kernel,
-                               stride=stride, padding=1)
+            nn.ConvTranspose2d(h_dim//2, 3, 
+                               kernel_size=kernel, stride=stride, padding=1)
         )
-
+        
         # original decoder
         # self.convtrans1 = nn.ConvTranspose2d(in_dim, h_dim, kernel_size=kernel-1, stride=stride-1, padding=1)
         # self.residual_stack = ResidualStack(h_dim, h_dim, res_h_dim, n_res_layers)

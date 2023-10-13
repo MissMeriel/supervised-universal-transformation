@@ -138,6 +138,7 @@ class MultiDirectoryDataSequence(data.Dataset):
         return image_base, y_steer
 
 
+    printed = False
     def __getitem__(self, idx):
         if idx in self.cache:
             if self.robustification:
@@ -184,14 +185,16 @@ class MultiDirectoryDataSequence(data.Dataset):
             sample =  {"image_base": image_base, "steering_input": orig_y_steer, "throttle_input": y_throttle}
         
         orig_sample =  {"image_base": image_base, "steering_input": orig_y_steer, "throttle_input": y_throttle}
-        try:
-            self.cache[idx] = orig_sample
-        except MemoryError as e:
-            print(f"Memory error adding sample to cache: {e}", flush=True)
-        # if sys.getsizeof(self.cache) < 8 * 1.0e25:
+        # try:
         #     self.cache[idx] = orig_sample
-        # else:
+        # except MemoryError as e:
+        #     print(f"Memory error adding sample to cache: {e}", flush=True)
+        # if sys.getsizeof(self.cache) < 8 * 1.0e25:
+        if sys.getsizeof(self.cache) < 2. * 1e4:
+            self.cache[idx] = orig_sample
+        # elif not printed:
         #     print(f"{len(self.cache.keys())=}")
+        #     printed=True
         return sample
 
     def get_outputs_distribution(self):

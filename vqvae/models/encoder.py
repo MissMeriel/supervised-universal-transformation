@@ -1,9 +1,13 @@
-
+import sys
+import os
+# print(__file__)
+# print((__file__).replace("vqvae/models/encoder.py", ""))
+# sys.path.append((__file__).replace("vqvae/models/encoder.py", ""))
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from vqvae.models.residual import ResidualStack
+from models.residual import ResidualStack
 
 
 class Encoder(nn.Module):

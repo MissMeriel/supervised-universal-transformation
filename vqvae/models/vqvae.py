@@ -6,10 +6,11 @@ import sys, os
 
 # sys.path.append(os.getcwd()+"/..")
 # sys.path.append(os.getcwd()+"/../..")
-sys.path.append("../../vqvae/models")
-from vqvae.models.encoder import Encoder
-from vqvae.models.quantizer import VectorQuantizer
-from vqvae.models.decoder import Decoder
+# sys.path.append("../../vqvae/models")
+sys.path.append(__file__.replace("vqvae.py",""))
+from models.encoder import Encoder
+from models.quantizer import VectorQuantizer
+from models.decoder import Decoder
 
 print(os.getcwd())
 class VQVAE(nn.Module):
@@ -32,7 +33,6 @@ class VQVAE(nn.Module):
     def forward(self, x, verbose=False):
 
         z_e = self.encoder(x)
-
         z_e = self.pre_quantization_conv(z_e)
         embedding_loss, z_q, perplexity, _, _ = self.vector_quantization(z_e)
         x_hat = self.decoder(z_q)
@@ -42,7 +42,6 @@ class VQVAE(nn.Module):
             print('encoded data shape:', z_e.shape)
             # print('decoder input shape:', z_q.shape)
             print('recon data shape:', x_hat.shape)
-            # assert False
 
         return embedding_loss, x_hat, perplexity
 
