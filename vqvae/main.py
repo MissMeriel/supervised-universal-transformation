@@ -9,6 +9,8 @@ import torchvision.transforms as T
 import argparse
 import utils
 import sys, os
+import time
+
 # sys.path.append(f"{os.getcwd()}")
 sys.path.append(f"{os.getcwd()}/../DAVE2")
 from DAVE2pytorch import *
@@ -45,6 +47,9 @@ parser.add_argument("--transf",  type=str, default="fisheye")
 parser.add_argument("--basemodel",  type=str, default=None)
 parser.add_argument("--max_dataset_size",  type=int, default=None)
 parser.add_argument("--warmstart",  type=str, default=None)
+parser.add_argument("--pred_weight",  type=float, default=0.05)
+parser.add_argument("--arch_id", type=int, default=None)
+
 
 # whether or not to save model
 parser.add_argument("-save", action="store_true")
@@ -73,7 +78,7 @@ training_data, validation_data, training_loader, validation_loader, x_train_var 
 Set up VQ-VAE model with components defined in ./models/ folder
 """
 model = VQVAE(args.n_hiddens, args.n_residual_hiddens,
-              args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=args.transf).to(device)
+              args.n_residual_layers, args.n_embeddings, args.embedding_dim, args.beta, transf=args.transf, arch_id=args.arch_id).to(device)
 
 if args.warmstart is not None:
     checkpoint = torch.load(args.warmstart, map_location=device)
@@ -99,7 +104,7 @@ if args.basemodel is None:
 else:
     basemodelpath = args.basemodel
 print(f"{basemodelpath=}")
-prediction_weight = 0.00005
+prediction_weight = args.pred_weight
 print(f"WEIGHTING PREDICTION ERROR WITH {prediction_weight}")
 basemodel = torch.load(basemodelpath, map_location=device)
 mseloss = torch.nn.MSELoss()
@@ -129,6 +134,7 @@ def train():
         x_hat_transform = None
     lowest_loss = 1
     best_model_count = 0
+    start = time.time()
     for i in range(args.epochs):
         for batch_idx, (x) in enumerate(training_loader):
             # x = next(iter(training_loader))
@@ -165,19 +171,17 @@ def train():
                     'Prediction loss:', np.mean(results["pred_errors"][-args.log_interval:]), 
                     flush=True)
 
-                if np.mean(results["loss_vals"][-args.log_interval:]) < lowest_loss and args.save:
+                if np.mean(results["loss_vals"][-args.log_interval:]) < lowest_loss and i > 5 and args.save:
                     hyperparameters = args.__dict__
-                    utils.save_model_and_results(
-                        model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_bestmodel{i:03}.pth")
+                    utils.save_model_and_results(model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_bestmodel{i:03}.pth")
                     print(f"New best model! Loss: {np.mean(results['loss_vals'][-args.log_interval:])}")
                     best_model_count += 1
                     lowest_loss = np.mean(results['loss_vals'][-args.log_interval:])
         
-        if args.save:
-            hyperparameters = args.__dict__
-            utils.save_model_and_results(
-                model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_epoch{i}.pth")
-
+        # if args.save:
+        #     hyperparameters = args.__dict__
+        #     utils.save_model_and_results(model, results, hyperparameters, f"{newdir}/vqvae_{args.transf}_epoch{i}.pth")
+    print(f"Trained in {((time.time() - start) / 60):.3f} minutes")
 
 if __name__ == "__main__":
     train()

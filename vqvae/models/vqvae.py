@@ -31,17 +31,22 @@ class VQVAE(nn.Module):
             self.img_to_embedding_map = None
 
     def forward(self, x, verbose=False):
-
+        # print('original data shape:', x.shape)
         z_e = self.encoder(x)
+        # print('encoder output shape:', z_e.shape)
         z_e = self.pre_quantization_conv(z_e)
+        # print('prequant output shape:', z_e.shape)
         embedding_loss, z_q, perplexity, _, _ = self.vector_quantization(z_e)
         x_hat = self.decoder(z_q)
+        # print('decoder input shape:', z_q.shape)
+        # print('recons data shape:', x_hat.shape)
 
-        if verbose:
-            print('original data shape:', x.shape)
-            print('encoded data shape:', z_e.shape)
-            # print('decoder input shape:', z_q.shape)
-            print('recon data shape:', x_hat.shape)
+        # if verbose:
+        #     print('original data shape:', x.shape)
+        #     print('encoder output shape:', z_e.shape)
+        #     print('decoder input shape:', z_q.shape)
+        #     print(f"{embedding_loss=} {perplexity=}")
+        #     print('recons data shape:', x_hat.shape)
 
         return embedding_loss, x_hat, perplexity
 
