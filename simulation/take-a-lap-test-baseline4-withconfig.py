@@ -7,9 +7,11 @@ current_path = os.path.abspath('.')
 print("vqvae path", p)
 print("current_path", current_path)
 sys.path.insert(0, p)
-sys.path.append("C:/Users/Meriel/Documents/GitHub/BeamNGpy/src")
-sys.path.append("C:/Users/Meriel/Documents/GitHub/IFAN")
-sys.path.append("C:/Users/Meriel/Documents/GitHub/supervised-universal-transformation")
+parentdir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+print("parentdir", parentdir)
+sys.path.append(f"{parentdir}/BeamNGpy/src")
+sys.path.append(f"{parentdir}/IFAN")
+sys.path.append(f"{parentdir}/supervised-universal-transformation")
 sys.path.append("..")
 from pathlib import Path
 import string
@@ -148,9 +150,9 @@ def create_ai_line_from_road_with_interpolation(spawn, bng, road_id):
 def setup_beamng(default_scenario, spawn_pos, rot_quat, road_id, reverse=False, seg=1, img_dims=(240,135), fov=51, vehicle_model='etk800', default_color="green", steps_per_sec=15,
                  beamnginstance='C:/Users/Meriel/Documents/BeamNG.researchINSTANCE4', port=64956, topo_id=None):
     global base_filename, centerline_interpolated, centerline
-    # random.seed(1703)
+    
     setup_logging()
-    beamng = BeamNGpy('localhost', port, home='F:/BeamNG.research.v1.7.0.1', user=beamnginstance)
+    beamng = BeamNGpy('localhost', port, home='H:/BeamNG.research.v1.7.0.1', user=beamnginstance)
     scenario = Scenario(default_scenario, 'research_test')
     vehicle = Vehicle('ego_vehicle', model=vehicle_model, licence='EGO', color=default_color)
     vehicle = setup_sensors(vehicle, img_dims, fov=fov)
@@ -198,7 +200,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     print(f"{transf=} \t {detransf=}")
     damage = wheelspeed = kph = throttle = runtime = distance_from_center = 0.0
     prev_error = setpoint
-    kphs = []; traj = []; steering_inputs = []; throttle_inputs = []; timestamps = []
+    # kphs = []; 
+    traj = [] #; steering_inputs = []; throttle_inputs = [] #; timestamps = []
     final_img = None
     total_loops = total_imgs = total_predictions = 0
     start_time = sensors['timer']['time']
@@ -219,6 +222,8 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         vehicle.update_vehicle()
         distance_to_cuton = distance2D(vehicle.state["pos"], cuton_pt)
         print(f"{steering=:.3f} \t{distance_to_cuton=:.1f} {dt=:.3f}")
+        if sensors['damage']["damage"] > 0.25:
+            raise Exception
     while damage <= 1:
         # collect images
         vehicle.update_vehicle()
@@ -253,19 +258,19 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
         total_predictions += 1
         throttle = throttle_PID(kph, dt, steering=steering)
         vehicle.control(throttle=throttle, steering=steering, brake=0.0)
-        steering_inputs.append(steering)
-        throttle_inputs.append(throttle)
-        timestamps.append(runtime)
+        # steering_inputs.append(steering)
+        # throttle_inputs.append(throttle)
+        # timestamps.append(runtime)
 
         damage = sensors['damage']["damage"]
         vehicle.update_vehicle()
         traj.append(vehicle.state['pos'])
 
-        kphs.append(ms_to_kph(wheelspeed))
+        # kphs.append(ms_to_kph(wheelspeed))
         total_loops += 1
         final_img = image
         dists = dist_from_line(centerline, vehicle.state['pos'])
-        m = np.where(dists == min(dists))[0][0]
+        # m = np.where(dists == min(dists))[0][0]
         if damage > 1.0:
             print(f"Damage={damage:.3f}, exiting...")
             break
@@ -284,7 +289,7 @@ def run_scenario(vehicle, bng, scenario, model, default_scenario, road_id, rever
     cv2.destroyAllWindows()
     track_len = get_distance_traveled(centerline)
     deviation = calc_deviation_from_center(centerline, traj)
-    results = {'runtime': round(runtime,3), 'damage': damage, 'kphs':kphs, 'traj':traj, 'final_img':final_img, 'deviation':deviation,
+    results = {'runtime': round(runtime,3), 'damage': damage, 'traj':traj, 'final_img':final_img, 'deviation':deviation,
                "track_length":track_len
                }
     return results
@@ -304,99 +309,89 @@ def main(topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster="000", hash="0
     model_name = "../weights/model-DAVE2v3-108x192-5000epoch-64batch-145Ksamples-epoch204-best051.pt"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = torch.load(model_name, map_location=device).eval()
-
+    random.seed(1703)
     vqvae = VQVAE(128, 32, 2, 512, 64, .25, transf=transf_id, arch_id=arch_id).eval().to(device)
     checkpoint = torch.load(vqvae_name, map_location=device)
     vqvae.load_state_dict(checkpoint["model"])
     # torchsummary.summary(vqvae, (3, 108, 192))
     vqvae_id = f"baseline4{count}K"
     default_scenario, road_id, seg, reverse = get_topo(topo_id)
+    try:
+        road_id = int(road_id) +1
+    except:
+        pass
     img_dims, fov, transf = get_transf(transf_id)
     runs = 25
     vqvae_literal = vqvae_name.split("/")[-1].replace('.pth', '')
-    filepathroot = f"simresults/bestfisharchreruns-{runs}RUNS-{vqvae_id}-{transf_id}-arch{arch_id}-{hash}/{vqvae_literal}/{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
+    filepathroot = f"simresults/coalescedtrainedvqvaes-{runs}RUNS-{vqvae_id}-{transf_id}-arch{arch_id}-{hash}/{vqvae_literal}/{topo_id}topo-cluster{cluster}-{runs}runs-{hash}/"
     print(f"{filepathroot=}")
     Path(filepathroot).mkdir(exist_ok=True, parents=True)
 
     print(f"TOPO_ID={topo_id} \tTRANSFORM={transf_id} \t IMAGE DIMS={img_dims}")
     random.seed(1703)
     vehicle, bng, scenario = setup_beamng(default_scenario, spawn_pos, rot_quat, road_id=road_id, seg=seg, reverse=reverse, img_dims=img_dims, fov=fov, vehicle_model='hopper',
-                                          beamnginstance='F:/BeamNG.researchINSTANCE3', port=64356, topo_id=topo_id)
+                                          beamnginstance='H:/BeamNG.researchINSTANCE3', port=64956, topo_id=topo_id)
     if topo_id == "extra_windingtrack" or topo_id == "Rturncommercialunderpass":
         centerline.reverse()
         centerline_interpolated.reverse()
     distances, deviations, deviations_seq, trajectories, runtimes = [], [], [], [], []
 
     for i in range(runs):
-        results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg,
-                               vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
-        results['distance'] = get_distance_traveled(results['traj'])
-        # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
-        print(f"\nBASE MODEL {transf_id}  {topo_id} RUN {i}:"
-              f"\n\tdistance={results['distance']:1f}"
-              f"\n\tavg dist from center={results['deviation']['mean']:3f}")
-        distances.append(results['distance'])
-        deviations.append(results['deviation']['mean'])
-        deviations_seq.append(results['deviation'])
-        trajectories.append(results["traj"])
-        runtimes.append(results['runtime'])
-    summary = {
-        "trajectories": trajectories,
-        "dists_from_centerline": deviations,
-        "dists_travelled": distances,
-        "track_length": results["track_length"],
-        "img_dims": img_dims,
-        "centerline_interpolated": centerline_interpolated,
-        "roadleft": roadleft,
-        "roadright": roadright,
-        "default_scenario": default_scenario,
-        "road_id": road_id,
-        "topo_id": topo_id,
-        "cluster": cluster,
-        "transf_id": transf_id,
-        "vqvae_name": vqvae_name,
-        "vqvae_id": vqvae_id,
-        "model_name": model_name,
-        "runtimes": runtimes
-    }
+        try:
+            results = run_scenario(vehicle, bng, scenario, model, default_scenario=default_scenario, road_id=road_id, seg=seg,
+                                vqvae=vqvae, transf=transf_id, detransf=detransf_id, topo=topo_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt)
+            results['distance'] = get_distance_traveled(results['traj'])
+            # plot_trajectory(results['traj'], f"{default_scenario}-{model._get_name()}-{road_id}-runtime{results['runtime']:.2f}-dist{results['distance']:.2f}")
+            print(f"\nBASE MODEL {transf_id}  {topo_id} RUN {i}:"
+                f"\n\tdistance={results['distance']:1f}"
+                f"\n\tavg dist from center={results['deviation']['mean']:3f}")
+            distances.append(results['distance'])
+            deviations.append(results['deviation']['mean'])
+            deviations_seq.append(results['deviation'])
+            trajectories.append(results["traj"])
+            runtimes.append(results['runtime'])
+            summary = {
+                "trajectories": trajectories,
+                "dists_from_centerline": deviations,
+                "dists_travelled": distances,
+                "track_length": results["track_length"],
+                "img_dims": img_dims,
+                "centerline_interpolated": centerline_interpolated,
+                "roadleft": roadleft,
+                "roadright": roadright,
+                "default_scenario": default_scenario,
+                "road_id": road_id,
+                "topo_id": topo_id,
+                "cluster": cluster,
+                "transf_id": transf_id,
+                "vqvae_name": vqvae_name,
+                "vqvae_id": vqvae_id,
+                "model_name": model_name,
+                "runtimes": runtimes
+            }
 
-    picklefile = open(f"{filepathroot}/summary.pickle", 'wb')
-    pickle.dump(summary, picklefile)
-    picklefile.close()
-    print(f"{topo_id} {transf_id} OUT OF {runs} RUNS:"
-          f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
-          f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
-          f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
-          f"\n\t{distances=}"
-          f"\n\t{deviations:}"
-          f"\n\t{vqvae_name=}"
-          f"\n\t{model_name=}")
-    id = f"basemodelalone-{vqvae_id}"
-    try:
-        plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3 ", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
-    except:
-        plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
+            picklefile = open(f"{filepathroot}/summary.pickle", 'wb')
+            pickle.dump(summary, picklefile)
+            picklefile.close()
+            print(f"{topo_id} {transf_id} OUT OF {runs} RUNS:"
+                f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
+                f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
+                f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
+                f"\n\t{distances=}"
+                f"\n\t{deviations:}"
+                f"\n\t{vqvae_name=}"
+                f"\n\t{model_name=}")
+            id = f"basemodelalone-{vqvae_id}"
+            try:
+                plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3 ", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
+            except:
+                plot_deviation(trajectories, centerline, roadleft, roadright, "DAVE2V3", filepathroot, savefile=f"{topo_id}-{transf_id}-{id}")
+        except Exception as e:
+            print(e)
+
     bng.close()
-    del vehicle, bng, scenario
-    return summary
-
-
-def summarize_results(all_results):
-    distances, deviations, avg_percentage, avgd_distances = [], [], [], []
-    trackcount = 5
-    for i, result in enumerate(all_results):
-        distances.extend(result["dists_travelled"])
-        deviations.extend(result["dists_from_centerline"])
-        avgd_distances.append(sum(distances[i]) / len(distances[i]))
-        x = [d / result["track_length"] for d in distances[i]]
-        avg_percentage += sum(x) / trackcount
-    print(f"5-TRACK SUMMARY:"
-          f"\n\tAvg. distance: {(sum(distances)/len(distances)):.1f}"
-          f"\n\tAvg. distance deviation: {np.std(distances):.1f}"
-          f"\n\tAvg. center deviation: {(sum(deviations) / len(deviations)):.3f}"
-          f"\n\tAvg. track %% travelled: {((avg_percentage / trackcount) * 100):.1f}%"
-          f"\n\tTotal distance travelled: {sum(avgd_distances):.1f}"
-    )
+    del vehicle, bng, scenario, model, vqvae, distances, deviations, deviations_seq, trajectories, runtimes, results
+    zero_globals()
 
 
 def get_vqvae_name(transf_id, count=10):
@@ -455,19 +450,24 @@ if __name__ == '__main__':
     # THIRD ROUND
     vqvae_names = [#"../weights/baseline4-10K/portal743150_vqvae_fisheye_newencoderarch2_samples10K_pred_weight1.0_epochs500_bestmodel483.pth",
                    # "../weights/baseline4-10K/portal743149_vqvae_UUST_fisheye_newencoderarch1_samples10000_pred_weight1.0_epochs500_bestmodel498.pth"
-                    "../weights/baseline4-10K/portal332881_vqvae10K_predlossweight1.0_fisheye_bestmodel495.pth",
-                    "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth",
+                   #  "../weights/baseline4-10K/portal332881_vqvae10K_predlossweight1.0_fisheye_bestmodel495.pth",
+                   #  "../weights/baseline4-50K/portal752565_vqvae50K_fisheye_newencoderarch2_predweight1.0_bestmodel493.pth",
+
+                    "../weights/baseline4-05K/portal905140_vqvae05K_resdec_newarch_predweight1.0_bestmodel495.pth",
+                    "../weights/baseline4-05K/portal904544_vqvae05K_resinc_newarch_predweight1.0_bestmodel472.pth",
+                    "../weights/baseline4-50K/portal905295_vqvae50K_resdec_newarch_predweight1.0_bestmodel470.pth",
+                    "../weights/baseline4-50K/portal905297_vqvae50K_resdec_newarch_predweight1.0_bestmodel469.pth",
+                    "../weights/baseline4-05K/portal905256_vqvae05K_depth_newencoderarch4_predweight1.0_bestmodel489.pth",
+                    "../weights/baseline4-05K/portal905254_vqvae05K_fisheye_newencoderarch2_predweight1.0_bestmodel466.pth",
 
                     "../weights/baseline4-25K/portal882402_vqvae_resdec_25K_newarch_predweight1.0_bestmodel481.pth",
                     "../weights/baseline4-25K/portal882427_vqvae_resinc_25K_newarch_predweight1.0_bestmodel409.pth",
                     "../weights/baseline4-95K/portal882404_vqvae95K_resdec_full_newarch_predweight1.0_bestmodel326.pth",
                     "../weights/baseline4-75K/portal882403_vqvae75K_resdec_newarch_predweight1.0_bestmodel477.pth",
-                    "",
-                    "",
                     ]
     # detransf_id = args.effect
-    effects = ["mediumfisheye", "mediumfisheye"]
-    arch_ids = [None, 2]
+    effects = [ "resdec", "resinc", "resdec", "resdec", "mediumdepth", "mediumfisheye", "resdec", "resinc", "resdec", "resdec"]
+    arch_ids = [0,0,0,0,4,2,0,0,0]
     df = df.reset_index()  # make sure indexes pair with number of rows
     # for i, detransf_id in enumerate(detransf_ids):
     random.seed(1703)
@@ -486,4 +486,8 @@ if __name__ == '__main__':
             cutoff = parse_list_from_string(row["END"])
             cuton_pt = parse_list_from_string(row["START"])
             cutoff_pt = parse_list_from_string(row["CUTOFF"])
-            results = main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt, arch_id=arch_id)
+            try:
+                main(config_topo_id, spawn_pos, rot_quat, vqvae_name, count, cluster=cluster, hash=hash, transf_id=detransf_id, cuton_pt=cuton_pt, cutoff_pt=cutoff_pt, arch_id=arch_id)
+            except Exception as e:
+                print(e.__doc__)
+                print(e)
